@@ -1,0 +1,4770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#0A0A0A" />
+<title>Bills — UK Parliament Tracker</title>
+<link rel="manifest" href="/manifest.json" />
+<link rel="apple-touch-icon" href="/icon-192.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Bills." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0A0A0A;
+  --surface: #151515;
+  --surface-2: #1C1C1C;
+  --ink: #F5F5F3;
+  --ink-2: #CFCFCF;
+  --muted: #888888;
+  --line: #262626;
+  --chip: #1C1C1C;
+  --chip-hover: #262626;
+  --accent: #F5F5F3;
+  --hot: #FF5630;
+  --ok: #22C55E;
+  --yellow: #FFD600;
+  --radius: 14px;
+  --radius-lg: 22px;
+  --radius-sm: 10px;
+  --t-display: clamp(2.2rem, 6vw, 3.2rem);
+  --t-h1: clamp(1.75rem, 4vw, 2.25rem);
+  --t-h2: 1.3rem;
+  --t-h3: 1.05rem;
+  --t-body: 1rem;
+  --t-small: 0.875rem;
+  --t-micro: 0.78rem;
+  --container: 680px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overscroll-behavior-y: none;
+}
+
+button {
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+  color: inherit;
+}
+
+a { color: inherit; text-decoration: none; }
+
+input {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+}
+
+.screen {
+  display: none;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: max(20px, env(safe-area-inset-top)) 20px calc(40px + env(safe-area-inset-bottom));
+}
+.screen.is-active {
+  display: block;
+  animation: fadeIn 0.25s ease both;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.container {
+  max-width: var(--container);
+  margin: 0 auto;
+}
+
+/* ========== APP BAR ========== */
+.app-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding-top: 4px;
+}
+.app-bar .title {
+  font-weight: 800;
+  font-size: 1.25rem;
+  letter-spacing: -0.01em;
+}
+.app-bar .spacer { flex: 1; }
+
+.icon-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.05rem;
+  color: var(--ink);
+  transition: background 0.15s, transform 0.1s;
+}
+.icon-btn:hover { background: var(--chip); }
+.icon-btn:active { transform: scale(0.95); }
+.icon-btn.is-active { background: var(--chip); color: var(--hot); border-color: transparent; }
+.icon-btn.is-active svg { stroke: var(--hot); fill: var(--hot); }
+
+/* ========== ONBOARDING ========== */
+.onb {
+  max-width: var(--container);
+  margin: 0 auto;
+  padding-top: 5vh;
+  padding-bottom: 60px;
+}
+.onb-step { display: none; }
+.onb-step.is-active { display: block; animation: onbIn 0.3s ease both; }
+@keyframes onbIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+
+.onb-progress {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  padding: 20px 0 0;
+}
+.onb-dot {
+  height: 7px;
+  width: 7px;
+  border-radius: 999px;
+  background: var(--line);
+  transition: all 0.25s ease;
+}
+.onb-dot.is-active { background: var(--ink); width: 22px; }
+
+.onb-brand {
+  font-family: 'Instrument Serif', Georgia, serif;
+  font-style: italic;
+  font-size: 2.6rem;
+  color: var(--ink);
+  margin-bottom: 24px;
+  line-height: 1;
+}
+.onb-eyebrow {
+  font-size: var(--t-micro);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 16px;
+}
+.onb h1 {
+  font-family: 'Instrument Serif', Georgia, serif;
+  font-weight: 400;
+  font-size: var(--t-display);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  margin-bottom: 14px;
+}
+.onb h1 em { font-style: italic; }
+.onb .lede {
+  font-size: 1.125rem;
+  color: var(--ink-2);
+  margin-bottom: 28px;
+  max-width: 520px;
+  line-height: 1.45;
+}
+.onb-why {
+  background: var(--chip);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  margin-bottom: 32px;
+  font-size: 0.95rem;
+  color: var(--ink-2);
+  line-height: 1.55;
+}
+.onb-why strong { color: var(--ink); }
+.onb-postcode-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.onb-postcode-input {
+  flex: 1;
+  border: 1.5px solid var(--line);
+  border-radius: 999px;
+  padding: 14px 20px;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--surface);
+  transition: border-color 0.15s;
+  min-width: 0;
+}
+.onb-postcode-input:focus { outline: none; border-color: var(--ink); }
+.onb-mp-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--chip);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 24px;
+  animation: onbIn 0.25s ease both;
+}
+.onb-mp-thumb {
+  width: 54px;
+  height: 54px;
+  border-radius: 999px;
+  object-fit: cover;
+  background: var(--line);
+  flex-shrink: 0;
+}
+.onb-mp-name { font-weight: 700; font-size: 1.05rem; margin-bottom: 3px; }
+.onb-mp-meta { font-size: 0.88rem; color: var(--muted); }
+.onb-mp-error { font-size: 0.92rem; color: #EF4444; margin-bottom: 20px; }
+.onb-cta-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.topic-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-bottom: 18px;
+}
+@media (min-width: 560px) {
+  .topic-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+.topic-search {
+  margin-bottom: 14px;
+  position: relative;
+}
+.topic-search input {
+  width: 100%;
+  background: var(--surface);
+  border: 1.5px solid var(--line);
+  border-radius: 999px;
+  padding: 14px 18px 14px 44px;
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--ink);
+  transition: border-color 0.15s;
+}
+.topic-search input:focus {
+  outline: none;
+  border-color: var(--ink);
+}
+.topic-search::before {
+  content: '';
+  position: absolute;
+  left: 17px;
+  top: 50%;
+  width: 15px;
+  height: 15px;
+  margin-top: -7px;
+  border: 1.8px solid var(--muted);
+  border-radius: 50%;
+  pointer-events: none;
+}
+.topic-search::after {
+  content: '';
+  position: absolute;
+  left: 30px;
+  top: 50%;
+  width: 7px;
+  height: 1.8px;
+  background: var(--muted);
+  transform: translateY(4px) rotate(45deg);
+  transform-origin: left;
+  pointer-events: none;
+}
+
+.topic-card {
+  --topic-color: var(--ink);
+  background: var(--surface);
+  border: 1.5px solid var(--line);
+  color: var(--ink);
+  border-radius: var(--radius);
+  padding: 14px 34px 14px 14px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  transition: all 0.15s;
+  min-height: 52px;
+  position: relative;
+  font-family: inherit;
+}
+.topic-card:hover { border-color: var(--muted); }
+.topic-card.is-active {
+  background: var(--surface);
+  color: var(--ink);
+  border-color: var(--yellow);
+}
+.topic-card.is-active::after {
+  content: '✓';
+  position: absolute;
+  top: 50%;
+  right: 14px;
+  transform: translateY(-50%);
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--yellow);
+  line-height: 1;
+}
+.topic-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.topic-label { font-weight: 700; font-size: 0.92rem; letter-spacing: -0.005em; flex: 1; }
+
+.picker-empty {
+  grid-column: 1 / -1;
+  padding: 28px 16px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.onb-cta-wrap {
+  position: sticky;
+  bottom: 16px;
+  margin-top: 24px;
+  display: flex;
+  justify-content: center;
+}
+
+.btn-primary {
+  background: var(--yellow);
+  color: #0A0A0A;
+  padding: 16px 28px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: -0.005em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 52px;
+  transition: transform 0.1s, opacity 0.15s;
+}
+.btn-primary:hover { transform: translateY(-1px); }
+.btn-primary:active { transform: translateY(0); }
+.btn-primary:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-ghost {
+  background: var(--chip);
+  color: var(--ink);
+  padding: 14px 22px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  min-height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: background 0.15s;
+}
+.btn-ghost:hover { background: var(--chip-hover); }
+
+.btn-tiny {
+  background: transparent;
+  color: var(--muted);
+  padding: 4px 0;
+  font-weight: 600;
+  font-size: 0.82rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.btn-tiny:hover { color: var(--ink); }
+
+.btn-x {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1.1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+.btn-x:hover { background: var(--chip); color: var(--hot); }
+
+/* ========== FEED ========== */
+.feed-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+.feed-head .wordmark {
+  font-family: 'Instrument Serif', Georgia, serif;
+  font-size: 1.6rem;
+  font-weight: 400;
+  letter-spacing: -0.015em;
+  background: transparent;
+  border: none;
+  color: var(--ink);
+  cursor: pointer;
+  padding: 0;
+  transition: opacity 0.15s;
+}
+.feed-head .wordmark:hover { opacity: 0.7; }
+.feed-head .wordmark em { font-style: italic; }
+
+.ticker {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1.5px solid var(--yellow);
+  border-radius: 999px;
+  padding: 9px 4px 9px 16px;
+  margin-bottom: 18px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  overflow: hidden;
+  position: relative;
+}
+.ticker-label {
+  flex-shrink: 0;
+  font-size: var(--t-micro);
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--yellow);
+  padding-right: 12px;
+  border-right: 1px solid rgba(255, 214, 0, 0.3);
+}
+.ticker-viewport {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 30px, #000 calc(100% - 30px), transparent);
+          mask-image: linear-gradient(90deg, transparent, #000 30px, #000 calc(100% - 30px), transparent);
+}
+.ticker-track {
+  display: inline-flex;
+  gap: 28px;
+  white-space: nowrap;
+  animation: ticker-scroll 120s linear infinite;
+  padding-left: 20px;
+}
+.ticker:hover .ticker-track { animation-play-state: paused; }
+@keyframes ticker-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.ticker-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: color 0.15s;
+  font-weight: 500;
+  color: var(--ink);
+}
+.ticker-item:hover { color: var(--yellow); }
+.ticker-item strong { color: var(--ink); font-weight: 700; }
+.ticker-item .ticker-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--yellow);
+}
+
+.filter-bar {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  margin: 0 -20px 20px;
+  padding-left: 20px;
+  padding-right: 20px;
+  scrollbar-width: none;
+}
+.filter-bar::-webkit-scrollbar { display: none; }
+
+.filter-chip {
+  flex-shrink: 0;
+  padding: 10px 14px;
+  background: var(--surface);
+  color: var(--ink-2);
+  border: 1.5px solid var(--line);
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  transition: all 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: inherit;
+}
+.filter-chip:hover { border-color: var(--muted); color: var(--ink); }
+.filter-chip.is-active {
+  border-color: var(--yellow);
+  color: var(--ink);
+  background: var(--surface);
+}
+.filter-chip .chip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.bills {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.bill-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.bill-stage-plain {
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+
+.bill-card {
+  position: relative;
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 22px 22px 20px;
+  cursor: pointer;
+  transition: transform 0.15s, border-color 0.15s;
+  border: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.bill-card.is-critical { padding-right: 52px; }
+
+.ad-tile {
+  position: relative;
+  display: block;
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--surface);
+  aspect-ratio: 1200 / 330;
+  text-decoration: none;
+  color: var(--ink);
+  transition: transform 0.15s;
+}
+.ad-tile:hover { transform: translateY(-1px); }
+.ad-tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ad-tile--placeholder {
+  border: 1.5px dashed var(--line);
+  background: linear-gradient(135deg, var(--surface) 0%, var(--surface-2) 100%);
+}
+.ad-tile--placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-align: center;
+  padding: 24px;
+}
+.ad-tile--placeholder .ph-eyebrow {
+  display: block;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--yellow);
+  margin-bottom: 8px;
+}
+.ad-tile--placeholder .ph-spec {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.72rem;
+  color: var(--muted);
+  opacity: 0.7;
+}
+.bill-card:hover {
+  transform: translateY(-1px);
+  border-color: var(--ink-2);
+}
+
+.bill-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--t-micro);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--hot);
+}
+
+.tile-stance {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: var(--t-micro);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 2px 0;
+  line-height: 1;
+  margin-top: -2px;
+}
+.tile-stance .stance-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.tile-stance--positive { color: var(--ok); }
+.tile-stance--positive .stance-dot { background: var(--ok); }
+.tile-stance--negative { color: var(--hot); }
+.tile-stance--negative .stance-dot { background: var(--hot); }
+.tile-stance--mixed { color: var(--yellow); }
+.tile-stance--mixed .stance-dot { background: var(--yellow); }
+
+.stance-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--t-micro);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border-radius: 999px;
+  line-height: 1.2;
+  flex-shrink: 0;
+}
+.stance-chip .stance-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.stance-chip--positive { background: rgba(34,197,94,0.12); color: var(--ok); }
+.stance-chip--positive .stance-dot { background: var(--ok); }
+.stance-chip--negative { background: rgba(255,86,48,0.12); color: var(--hot); }
+.stance-chip--negative .stance-dot { background: var(--hot); }
+.stance-chip--mixed { background: rgba(255,214,0,0.12); color: var(--yellow); }
+.stance-chip--mixed .stance-dot { background: var(--yellow); }
+.bill-eyebrow .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--hot);
+  display: inline-block;
+}
+.bill-eyebrow .sep {
+  color: var(--muted);
+  font-weight: 500;
+  letter-spacing: 0;
+}
+.bill-eyebrow .watch {
+  margin-left: auto;
+  color: var(--muted);
+  letter-spacing: 0.05em;
+}
+
+.bill-topics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.topic-pill {
+  font-size: var(--t-micro);
+  font-weight: 700;
+  padding: 4px 10px;
+  background: var(--chip);
+  color: var(--ink-2);
+  border-radius: 999px;
+  letter-spacing: 0.01em;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  line-height: 1;
+  white-space: nowrap;
+}
+.topic-pill--watch {
+  background: rgba(255,86,48,0.15);
+  color: var(--hot);
+}
+.topic-pill--watch svg { stroke: var(--hot); fill: var(--hot); width: 11px; height: 11px; }
+.topic-pill--more {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--line);
+}
+
+.bill-title {
+  font-size: 0.97rem;
+  font-weight: 700;
+  line-height: 1.28;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+.bill-summary {
+  font-size: 0.84rem;
+  color: var(--ink-2);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.bill-meta {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 4px;
+  font-size: var(--t-micro);
+  color: var(--muted);
+  font-weight: 500;
+}
+.bill-meta .sep { opacity: 0.5; }
+
+.stage-pill {
+  font-size: var(--t-micro);
+  font-weight: 600;
+  padding: 4px 10px;
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--ink-2);
+  border-radius: 999px;
+}
+.stage-pill--lg {
+  font-size: 0.85rem;
+  padding: 6px 14px;
+}
+
+.meta-date {
+  font-size: var(--t-micro);
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.loading, .empty {
+  padding: 40px 16px;
+  text-align: center;
+  color: var(--muted);
+}
+.empty h3 {
+  color: var(--ink);
+  font-size: 1.1rem;
+  margin-bottom: 6px;
+  font-weight: 700;
+}
+.empty p { font-size: 0.95rem; line-height: 1.5; max-width: 360px; margin: 0 auto; }
+
+.loading::before {
+  content: '';
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--line);
+  border-top-color: var(--ink);
+  border-radius: 50%;
+  margin-right: 10px;
+  vertical-align: -2px;
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ========== DETAIL ========== */
+.detail-title {
+  font-family: 'Instrument Serif', Georgia, serif;
+  font-weight: 400;
+  font-size: var(--t-h1);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  margin: 14px 0 12px;
+}
+
+.detail-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 22px;
+  font-size: 0.9rem;
+  color: var(--muted);
+  font-weight: 500;
+}
+.detail-status .meta-sep { opacity: 0.5; }
+.detail-status strong {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+/* ========== MP VOTE BAR ========== */
+.mp-vote-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-radius: var(--radius);
+  font-size: 0.88rem;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+.mp-vote-bar.is-for       { background: rgba(34,197,94,0.12);  color: #22C55E; }
+.mp-vote-bar.is-against   { background: rgba(255,86,48,0.12);  color: var(--hot); }
+.mp-vote-bar.is-introduced{ background: rgba(34,197,94,0.12);  color: #22C55E; }
+.mp-vote-bar.is-none      { background: var(--surface); color: var(--muted); border: 1px solid var(--line); }
+
+/* ========== BILL STEPPER ========== */
+.bill-stepper {
+  display: flex;
+  align-items: flex-start;
+  width: 100%;
+  margin-bottom: 16px;
+  padding: 20px 6px 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.step-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+}
+.step-item::before {
+  content: '';
+  position: absolute;
+  top: 12px;
+  left: calc(-50%);
+  width: 100%;
+  height: 2px;
+  background: var(--line);
+}
+.step-item:first-child::before { display: none; }
+.step-item.done::before,
+.step-item.current::before { background: #22C55E; }
+.step-dot {
+  width: 25px;
+  height: 25px;
+  border-radius: 50%;
+  border: 2px solid var(--line);
+  background: var(--surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--muted);
+  position: relative;
+  z-index: 1;
+  transition: all 0.2s;
+}
+.step-item.done .step-dot {
+  background: #22C55E;
+  border-color: #22C55E;
+  color: #fff;
+  font-size: 0.7rem;
+}
+.step-dot svg { display: block; }
+.step-item.current .step-dot {
+  border-color: var(--ink);
+  border-width: 2.5px;
+  color: var(--ink);
+  background: var(--surface);
+}
+.step-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--muted);
+  margin-top: 9px;
+  text-align: center;
+  letter-spacing: 0.01em;
+}
+.step-item.current .step-label {
+  color: var(--ink);
+  font-weight: 700;
+}
+.step-item.done .step-label {
+  color: var(--muted);
+}
+
+/* ========== DRAWERS (dropdowns) ========== */
+.drawer {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+.drawer summary {
+  padding: 16px 20px;
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 700;
+  font-size: 0.95rem;
+  user-select: none;
+  transition: background 0.15s;
+  letter-spacing: -0.005em;
+}
+.drawer summary::-webkit-details-marker { display: none; }
+.drawer summary::marker { display: none; content: ''; }
+.drawer summary:hover { background: var(--chip); }
+.drawer summary::after {
+  content: '＋';
+  font-size: 1rem;
+  color: var(--muted);
+  font-weight: 400;
+  transition: transform 0.2s;
+  line-height: 1;
+}
+.drawer[open] summary::after {
+  content: '−';
+  font-size: 1.3rem;
+}
+.drawer .drawer-body {
+  padding: 0 20px 20px;
+  color: var(--ink-2);
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+.drawer .drawer-body p + p { margin-top: 10px; }
+.drawer .drawer-body .meta-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.9rem;
+}
+.drawer .drawer-body .meta-row:last-child { border-bottom: none; }
+.drawer .drawer-body .meta-row .meta-label {
+  font-size: var(--t-micro);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+.drawer .drawer-body .meta-row .meta-value {
+  color: var(--ink-2);
+  font-weight: 500;
+  text-align: right;
+}
+
+.ghost-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 0;
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.ghost-link:hover { color: var(--ink); }
+
+.detail-section {
+  margin-top: 28px;
+}
+.detail-section h3 {
+  font-size: var(--t-h3);
+  font-weight: 700;
+  margin-bottom: 10px;
+  letter-spacing: -0.005em;
+}
+.detail-section p {
+  color: var(--ink-2);
+  font-size: 0.98rem;
+  line-height: 1.6;
+}
+.detail-section ul {
+  list-style: none;
+  padding: 0;
+}
+.detail-section li {
+  color: var(--ink-2);
+  font-size: 0.98rem;
+  line-height: 1.55;
+  padding: 8px 0 8px 20px;
+  position: relative;
+  border-bottom: 1px solid var(--line);
+}
+.detail-section li:last-child { border-bottom: none; }
+.detail-section li::before {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 18px;
+  width: 6px;
+  height: 6px;
+  background: var(--ink);
+  border-radius: 50%;
+}
+
+.ai-their-framing {
+  background: var(--surface);
+  border-left: 3px solid var(--muted);
+  padding: 14px 18px;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  margin-bottom: 10px;
+}
+.ai-their-label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.ai-their-framing p {
+  font-size: 0.92rem;
+  font-style: italic;
+  color: var(--ink-2);
+  line-height: 1.5;
+  font-weight: 400;
+}
+.ai-counter {
+  border-left: 3px solid var(--hot);
+  padding: 14px 18px;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  margin-bottom: 10px;
+}
+.ai-counter-label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--hot);
+  margin-bottom: 5px;
+}
+.ai-counter p {
+  font-size: 0.92rem;
+  color: var(--ink);
+  line-height: 1.55;
+}
+.ai-gist {
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  padding: 20px 22px;
+  border-radius: var(--radius);
+  margin-bottom: 10px;
+}
+.ai-gist p {
+  color: var(--ink);
+  font-size: 0.98rem;
+  line-height: 1.6;
+  font-weight: 400;
+}
+.inline-source {
+  color: var(--yellow);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+  font-weight: 500;
+  transition: opacity 0.15s;
+}
+.inline-source:hover { opacity: 0.8; }
+
+.ai-badge {
+  display: inline-block;
+  font-size: var(--t-micro);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+  opacity: 0.7;
+}
+
+.ai-matters {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  padding: 22px;
+  border-radius: var(--radius);
+  margin-bottom: 14px;
+}
+.ai-matters h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: 10px;
+  letter-spacing: -0.005em;
+}
+.ai-matters ul li {
+  padding-left: 22px;
+}
+.ai-matters ul li::before {
+  background: var(--ink-2);
+  top: 17px;
+}
+.ai-matters-group { margin-top: 16px; }
+.ai-matters-group:first-of-type { margin-top: 4px; }
+.ai-matters-topic {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: var(--t-micro);
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  margin-bottom: 6px;
+}
+
+/* ========== CRITICAL ANALYSIS SECTIONS ========== */
+.ai-framing {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--hot);
+  padding: 20px 22px;
+  border-radius: var(--radius);
+  margin-bottom: 14px;
+}
+.ai-framing .ai-framing-stated {
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.5;
+  margin-bottom: 10px;
+}
+.ai-framing .ai-framing-stated strong {
+  color: var(--ink-2);
+  font-weight: 700;
+}
+.ai-framing .ai-framing-real {
+  color: var(--ink);
+  font-size: 1rem;
+  line-height: 1.5;
+  font-weight: 500;
+}
+.ai-badge--critical {
+  color: var(--hot);
+  opacity: 1;
+}
+
+.ai-section { margin-bottom: 20px; }
+.ai-section-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 8px;
+  letter-spacing: -0.01em;
+}
+.ai-section-title em { font-style: italic; }
+.ai-harm {
+  margin-bottom: 20px;
+}
+.ai-harm h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+  letter-spacing: -0.01em;
+  padding-left: 2px;
+}
+.affected-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.affected-group {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  transition: border-color 0.15s;
+}
+.affected-group[open] { border-color: var(--muted); }
+.affected-group summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.affected-group summary::-webkit-details-marker { display: none; }
+.affected-group summary::marker { display: none; content: ''; }
+.affected-group summary:hover { background: var(--chip); }
+.affected-pill {
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: 999px;
+  letter-spacing: 0.01em;
+  line-height: 1.2;
+}
+.affected-toggle {
+  font-size: 1.2rem;
+  font-weight: 400;
+  color: var(--muted);
+  line-height: 1;
+  transition: transform 0.2s;
+  margin-left: auto;
+}
+.affected-group[open] .affected-toggle { transform: rotate(45deg); }
+.affected-group > p {
+  padding: 4px 16px 16px;
+  color: var(--ink-2);
+  font-size: 0.95rem;
+  line-height: 1.55;
+  margin: 0;
+}
+.affected-body {
+  padding: 0 16px 16px;
+}
+.affected-body p {
+  color: var(--ink-2);
+  font-size: 0.95rem;
+  line-height: 1.55;
+  margin: 0 0 12px;
+}
+.affected-sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.affected-source {
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 5px 11px 5px 11px;
+  background: var(--chip);
+  color: var(--ink-2);
+  border-radius: 999px;
+  text-decoration: none;
+  transition: all 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  line-height: 1;
+}
+.affected-source::after { content: '↗'; opacity: 0.6; font-size: 0.72rem; }
+.affected-source:hover { color: var(--yellow); background: var(--chip-hover); }
+
+/* ========== EXTERNAL SOURCES ========== */
+.ai-sources {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  padding: 22px;
+  border-radius: var(--radius);
+  margin-bottom: 14px;
+}
+.ai-sources h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: 6px;
+  letter-spacing: -0.005em;
+}
+.ai-sources-intro {
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.45;
+  margin-bottom: 14px;
+}
+.source-card {
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  margin-bottom: 8px;
+}
+.source-card:last-child { margin-bottom: 0; }
+.source-org {
+  font-size: var(--t-micro);
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--yellow);
+  margin-bottom: 6px;
+}
+.source-concern {
+  color: var(--ink);
+  font-size: 0.95rem;
+  line-height: 1.5;
+  margin-bottom: 8px;
+}
+.source-link {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: color 0.15s;
+}
+.source-link:hover { color: var(--yellow); }
+
+/* Red flags with plain-English headlines + explanations */
+.flag-row {
+  padding: 10px 0;
+  border-top: 1px solid rgba(255, 86, 48, 0.15);
+}
+.flag-row:first-child { border-top: none; padding-top: 0; }
+.flag-row:last-child { padding-bottom: 0; }
+.flag-head {
+  font-weight: 700;
+  color: var(--ink);
+  font-size: 0.95rem;
+  margin-bottom: 4px;
+  line-height: 1.35;
+}
+.flag-row p {
+  color: var(--ink-2);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.ai-watch-for {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  padding: 16px 22px;
+  border-radius: var(--radius);
+  margin-bottom: 14px;
+}
+.ai-watch-for p {
+  color: var(--ink);
+  font-size: 0.95rem;
+  line-height: 1.5;
+  margin-top: 2px;
+}
+.ai-watch-for .ai-badge { color: var(--yellow); margin-bottom: 4px; }
+
+.ai-flags {
+  background: rgba(255, 86, 48, 0.08);
+  border: 1px solid rgba(255, 86, 48, 0.25);
+  padding: 18px 22px;
+  border-radius: var(--radius);
+  margin-bottom: 14px;
+}
+.ai-flags-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--t-micro);
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--hot);
+  margin-bottom: 10px;
+}
+.ai-flag-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--hot);
+  color: #0A0A0A;
+  font-weight: 900;
+  font-size: 0.78rem;
+  line-height: 1;
+}
+.ai-flags ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.ai-flags ul li {
+  position: relative;
+  padding: 6px 0 6px 16px;
+  color: var(--ink);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+.ai-flags ul li::before {
+  content: '—';
+  position: absolute;
+  left: 0;
+  color: var(--hot);
+  font-weight: 700;
+}
+
+.ai-history {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  padding: 18px 22px;
+  border-radius: var(--radius);
+  margin-bottom: 14px;
+}
+.ai-history .ai-badge {
+  color: var(--yellow);
+}
+.ai-history p {
+  color: var(--ink-2);
+  font-size: 0.95rem;
+  line-height: 1.55;
+  margin-top: 2px;
+}
+
+.ai-limited {
+  background: rgba(255, 214, 0, 0.08);
+  border: 1px solid rgba(255, 214, 0, 0.25);
+  color: var(--ink-2);
+  padding: 12px 16px;
+  border-radius: var(--radius);
+  margin-bottom: 14px;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.ai-watch {
+  background: #FEF4C7;
+  padding: 18px 22px;
+  border-radius: var(--radius);
+}
+.ai-watch p {
+  color: #523E00;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  font-weight: 500;
+}
+.ai-watch .ai-badge { color: #7A5A00; opacity: 1; margin-bottom: 6px; }
+
+.ai-prompt {
+  background: var(--surface);
+  border: 1.5px dashed var(--line);
+  padding: 24px;
+  border-radius: var(--radius);
+  text-align: left;
+}
+.ai-prompt h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.ai-prompt p {
+  color: var(--muted);
+  font-size: 0.92rem;
+  margin-bottom: 14px;
+  line-height: 1.5;
+}
+
+.detail-meta {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 4px 20px;
+}
+.detail-meta > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.92rem;
+  gap: 16px;
+}
+.detail-meta > div:last-child { border-bottom: none; }
+.meta-label {
+  font-size: var(--t-micro);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.detail-meta > div > span:last-child {
+  color: var(--ink-2);
+  font-weight: 500;
+  text-align: right;
+}
+
+.detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+  margin-bottom: 16px;
+}
+.detail-actions .btn-primary { flex: 1 1 auto; min-width: 180px; }
+
+.petitions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.petition {
+  display: block;
+  padding: 16px 18px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  transition: transform 0.1s, border-color 0.15s;
+}
+.petition:hover { border-color: var(--ink-2); transform: translateX(2px); }
+.petition-title {
+  font-weight: 600;
+  font-size: 0.95rem;
+  line-height: 1.4;
+  margin-bottom: 4px;
+}
+.petition-meta {
+  font-size: var(--t-micro);
+  color: var(--muted);
+  font-weight: 500;
+}
+
+/* ========== UPDATE BANNER ========== */
+.update-banner {
+  background: var(--yellow);
+  color: #0A0A0A;
+  padding: 12px 16px;
+  border-radius: var(--radius);
+  margin-bottom: 14px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+.update-banner svg { stroke: #0A0A0A; }
+.update-banner button {
+  font-weight: 700;
+  text-decoration: underline;
+  font-size: 0.85rem;
+}
+
+/* ========== SETTINGS ========== */
+.settings-body {
+  display: flex;
+  flex-direction: column;
+  gap: 36px;
+  margin-top: 4px;
+}
+.settings-body section h2 {
+  font-size: var(--t-h2);
+  font-weight: 700;
+  margin-bottom: 12px;
+  letter-spacing: -0.01em;
+}
+.settings-body .hint {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin-bottom: 12px;
+  line-height: 1.45;
+}
+
+.topic-row {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  margin-bottom: 10px;
+}
+.topic-row-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.topic-row-name { font-weight: 700; font-size: 1rem; }
+.topic-row-kw {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.kw {
+  font-size: var(--t-micro);
+  padding: 3px 9px;
+  background: var(--chip);
+  color: var(--ink-2);
+  border-radius: 999px;
+  font-weight: 500;
+}
+
+.input {
+  width: 100%;
+  background: var(--surface);
+  border: 1.5px solid var(--line);
+  border-radius: 12px;
+  padding: 14px 16px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  margin-bottom: 10px;
+  transition: border-color 0.15s;
+}
+.input:focus {
+  outline: none;
+  border-color: var(--ink);
+}
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+.toggle-row input { width: 18px; height: 18px; accent-color: var(--yellow); }
+
+/* ========== TOAST ========== */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%);
+  background: var(--yellow);
+  color: #0A0A0A;
+  padding: 12px 20px;
+  border-radius: 999px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  z-index: 100;
+  animation: toastIn 0.25s ease, toastOut 0.25s ease 1.5s both;
+}
+@keyframes toastIn { from { transform: translate(-50%, 20px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+@keyframes toastOut { to { transform: translate(-50%, 20px); opacity: 0; } }
+
+/* ========== SUPPORT ========== */
+.support-pill {
+  background: var(--surface);
+  color: var(--ink);
+  border: 1.5px solid var(--yellow);
+  padding: 0 16px;
+  height: 40px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s;
+  font-family: inherit;
+}
+.support-pill:hover { background: var(--chip); }
+.support-btn {
+  background: var(--surface);
+  color: var(--ink);
+  border: 1.5px solid var(--yellow);
+}
+.support-btn:hover { background: var(--chip); }
+
+/* ========== MODAL ========== */
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.modal[hidden] { display: none; }
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
+  animation: fadeIn 0.2s ease;
+}
+.modal-body {
+  position: relative;
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  padding: 36px 28px 28px;
+  max-width: 440px;
+  width: 100%;
+  animation: modalIn 0.25s cubic-bezier(.2,.8,.2,1);
+  text-align: left;
+}
+@keyframes modalIn {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1.4rem;
+  font-weight: 400;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+  line-height: 1;
+}
+.modal-close:hover { background: var(--chip); color: var(--ink); }
+.modal-eyebrow {
+  font-size: var(--t-micro);
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+.modal-title {
+  font-family: 'Instrument Serif', Georgia, serif;
+  font-weight: 400;
+  font-size: 2rem;
+  letter-spacing: -0.015em;
+  margin-bottom: 14px;
+  line-height: 1.1;
+}
+.modal-text {
+  color: var(--ink-2);
+  font-size: 0.98rem;
+  line-height: 1.55;
+  margin-bottom: 22px;
+}
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+.modal-actions .btn-primary,
+.modal-actions .btn-ghost { flex: 1 1 auto; }
+.modal-fine {
+  font-size: 0.78rem;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+/* ========== STANCE + EMAIL DRAFT ========== */
+.modal-body--wide { max-width: 560px; }
+.stance-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.stance-btn {
+  background: var(--surface-2);
+  border: 1.5px solid var(--line);
+  color: var(--ink);
+  padding: 16px;
+  border-radius: var(--radius);
+  font-weight: 700;
+  font-size: 0.92rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+}
+.stance-btn:hover { border-color: var(--muted); }
+.stance-btn.is-active { border-color: var(--yellow); }
+.stance-btn .stance-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--chip);
+  font-weight: 800;
+  font-size: 1rem;
+}
+.stance-btn[data-stance="support"] .stance-icon { background: rgba(34,197,94,0.15); color: var(--ok); }
+.stance-btn[data-stance="oppose"] .stance-icon { background: rgba(255,86,48,0.15); color: var(--hot); }
+.stance-btn.is-active[data-stance="support"] .stance-icon { background: var(--ok); color: var(--bg); }
+.stance-btn.is-active[data-stance="oppose"] .stance-icon { background: var(--hot); color: var(--bg); }
+
+.email-field {
+  margin-bottom: 10px;
+}
+.email-label {
+  display: block;
+  font-size: var(--t-micro);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.email-body {
+  width: 100%;
+  min-height: 220px;
+  font-family: inherit;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+/* ========== POSTCODE + MP ========== */
+.pc-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.pc-row .input {
+  flex: 1;
+  margin-bottom: 0;
+  text-transform: uppercase;
+}
+.pc-row .btn-ghost { flex-shrink: 0; white-space: nowrap; }
+
+.mp-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  position: relative;
+  overflow: hidden;
+}
+.mp-card::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 4px;
+  background: var(--mp-color, var(--ink));
+}
+.mp-card img {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--chip);
+  flex-shrink: 0;
+}
+.mp-card-body { flex: 1; min-width: 0; }
+.mp-card-name {
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: -0.005em;
+}
+.mp-card-meta {
+  font-size: 0.85rem;
+  color: var(--muted);
+  font-weight: 500;
+  margin-top: 2px;
+}
+.mp-card-clear {
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.mp-card-clear:hover { color: var(--hot); }
+
+/* ========== RADIO GROUP ========== */
+.radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 12px;
+}
+.radio-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font-size: 0.92rem;
+  cursor: pointer;
+  line-height: 1.4;
+  transition: border-color 0.15s;
+}
+.radio-row:hover { border-color: var(--ink-2); }
+.radio-row input {
+  accent-color: var(--yellow);
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+.radio-row strong { font-weight: 700; }
+
+/* ========== MP BADGE ON BILL CARDS ========== */
+.topic-pill--mp {
+  background: var(--mp-color, var(--yellow));
+  color: var(--ink);
+  border: 1.5px solid var(--ink);
+  padding: 3px 10px 3px 8px;
+}
+.topic-pill--mp::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  background: var(--ink);
+  border-radius: 50%;
+  margin-right: 5px;
+  vertical-align: 1px;
+}
+
+.bill-card.is-by-mp {
+  border-left: 4px solid var(--mp-color, var(--yellow));
+  padding-left: 18px;
+}
+
+/* ========== RESPONSIVE ========== */
+@media (min-width: 720px) {
+  .screen { padding: 32px 32px 60px; }
+  .bill-card { padding: 24px; }
+  .bill-title { font-size: 1rem; }
+}
+
+/* ========== FEED TABS (Bills / Pulse) ========== */
+.feed-tabs {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 3px;
+}
+.feed-tab {
+  padding: 7px 15px;
+  border-radius: 999px;
+  font-family: 'Instrument Serif', Georgia, serif;
+  font-weight: 400;
+  font-style: italic;
+  font-size: 1.1rem;
+  color: var(--muted);
+  transition: all 0.15s;
+  letter-spacing: -0.01em;
+  line-height: 1;
+}
+.feed-tab:hover:not(.is-active) { color: var(--ink); }
+.feed-tab.is-active { background: var(--yellow); color: #0A0A0A; }
+
+/* ========== FEED SEARCH ========== */
+.feed-search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.feed-search-icon {
+  position: absolute;
+  left: 14px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+}
+.feed-search {
+  width: 100%;
+  padding: 10px 40px 10px 40px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 500;
+  background: var(--surface);
+  color: var(--ink);
+  -webkit-appearance: none;
+  appearance: none;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.feed-search:focus { border-color: var(--muted); }
+.feed-search::-webkit-search-cancel-button { display: none; }
+.feed-search-clear {
+  position: absolute;
+  right: 10px;
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 4px 8px;
+  line-height: 1;
+}
+.feed-search-clear:hover { color: var(--ink); }
+
+/* ========== PULL TO REFRESH ========== */
+.ptr-indicator {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: translateY(-58px);
+  z-index: 999;
+  pointer-events: none;
+}
+.ptr-ring {
+  width: 30px;
+  height: 30px;
+  border: 2.5px solid var(--line);
+  border-top-color: var(--yellow);
+  border-radius: 50%;
+}
+.ptr-indicator.ptr-spinning .ptr-ring {
+  animation: spin 0.7s linear infinite;
+}
+
+/* ========== PULSE (political news stream) ========== */
+.pulse-feed { display: flex; flex-direction: column; gap: 12px; }
+
+.pulse-card {
+  position: relative;
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 18px 18px 16px;
+  border: 1px solid var(--line);
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+  overflow: hidden;
+  touch-action: pan-y;
+  user-select: none;
+  transition: transform 0.15s, border-color 0.15s;
+}
+.pulse-card:hover { transform: translateY(-1px); border-color: var(--ink-2); }
+
+/* Read state — dimmed like a visited link */
+.pulse-card.is-read { background: var(--surface-2); border-color: var(--line); }
+.pulse-card.is-read .pulse-headline { opacity: 0.45; }
+.pulse-card.is-read .pulse-snippet { opacity: 0.35; }
+.pulse-card.is-read .pulse-thumb { opacity: 0.45; }
+
+.pulse-card-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 7px; }
+
+/* Eyebrow row — matches .bill-eyebrow */
+.pulse-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: var(--t-micro);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.pulse-source-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.pulse-time { margin-left: auto; font-weight: 500; letter-spacing: 0; text-transform: none; }
+
+/* Headline — matches .bill-title */
+.pulse-headline {
+  font-size: 0.97rem;
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  transition: opacity 0.2s;
+}
+
+/* Snippet — matches .bill-summary */
+.pulse-snippet {
+  font-size: 0.84rem;
+  color: var(--ink-2);
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  transition: opacity 0.2s;
+}
+
+/* Thumbnail — 80×80px rendered; provide 160×160px source for retina */
+.pulse-thumb {
+  width: 80px;
+  height: 80px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+  align-self: flex-start;
+  margin-top: 2px;
+  transition: opacity 0.2s;
+}
+
+/* Swipe-dismiss hint */
+.pulse-card::after {
+  content: 'Dismiss';
+  position: absolute;
+  right: 18px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--hot);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.1s;
+}
+.pulse-card.is-swiping::after { opacity: 1; }
+
+/* Reused in news-detail recommended section */
+.news-feed { display: flex; flex-direction: column; gap: 14px; }
+.news-card { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); text-decoration: none; color: inherit; cursor: pointer; overflow: hidden; transition: border-color 0.15s; }
+.news-card:hover { border-color: var(--ink-2); }
+.news-card-image { width: 100%; padding: 10px 10px 0; height: 160px; flex-shrink: 0; }
+.news-card-image img, .news-card-img-placeholder { width: 100%; height: 100%; object-fit: cover; display: block; border-radius: 8px; }
+.news-card-body { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 5px; }
+.news-card-eyebrow { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.news-topic-chip { font-size: var(--t-micro); font-weight: 800; padding: 2px 8px; border-radius: 999px; letter-spacing: 0.02em; line-height: 1.4; flex-shrink: 0; }
+.news-source-name { font-size: var(--t-micro); font-weight: 700; color: var(--muted); letter-spacing: 0.05em; text-transform: uppercase; }
+.news-time { font-size: var(--t-micro); color: var(--muted); font-weight: 500; margin-left: auto; }
+.news-headline { font-size: 0.95rem; font-weight: 700; line-height: 1.3; letter-spacing: -0.01em; color: var(--ink); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.news-summary { font-size: 0.82rem; color: var(--ink-2); line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* ========== PARLIAMENT WEEK ========== */
+.pw-intro {
+  padding: 8px 0 20px;
+  font-size: 0.92rem;
+  color: var(--muted);
+}
+.pw-day-group { margin-bottom: 28px; }
+.pw-day-label {
+  font-size: var(--t-micro);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--muted);
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+.pw-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+.pw-card:active { transform: scale(0.99); }
+.pw-stage-pill {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 999px;
+  margin-bottom: 8px;
+  background: var(--chip);
+  color: var(--muted);
+}
+.pw-card-title {
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--ink);
+  line-height: 1.3;
+  margin-bottom: 5px;
+}
+.pw-card-summary {
+  font-size: 0.88rem;
+  color: var(--ink-2);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ========== MP STATEMENTS ========== */
+.mp-statements-label {
+  font-size: var(--t-micro);
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+.mp-statements-note {
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-style: italic;
+  margin-bottom: 14px;
+  line-height: 1.4;
+}
+.mp-card {
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  text-decoration: none;
+  display: block;
+  color: inherit;
+  transition: border-color 0.15s;
+}
+.mp-card:hover { border-color: var(--muted); }
+.mp-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+.mp-party-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.mp-card-name { font-weight: 700; font-size: 0.9rem; }
+.mp-card-meta { font-size: 0.78rem; color: var(--muted); }
+.mp-card-text {
+  font-size: 0.88rem;
+  color: var(--ink-2);
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.mp-fact-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #D97706;
+  background: #FEF3C722;
+  border: 1px solid #D9770644;
+  border-radius: 999px;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+
+/* ========== BILL REACTION ========== */
+.section-title {
+  font-family: 'Instrument Serif', Georgia, serif;
+  font-size: 1.3rem;
+  font-weight: 400;
+  color: var(--ink);
+  margin: 28px 0 14px;
+}
+.reaction-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.reaction-col {
+  background: var(--chip);
+  border-radius: var(--radius);
+  padding: 14px;
+}
+.reaction-col-label {
+  font-size: var(--t-micro);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 10px;
+}
+.reaction-col--for .reaction-col-label { color: #16A34A; }
+.reaction-col--against .reaction-col-label { color: #DC2626; }
+.reaction-item {
+  font-size: 0.88rem;
+  color: var(--ink);
+  font-weight: 600;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--line);
+  line-height: 1.3;
+}
+.reaction-item:last-child { border-bottom: none; }
+.reaction-debate {
+  font-size: 0.92rem;
+  color: var(--ink-2);
+  line-height: 1.5;
+  font-style: italic;
+  margin-bottom: 4px;
+}
+.press-item {
+  display: block;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+  text-decoration: none;
+  color: inherit;
+}
+.press-item:last-child { border-bottom: none; }
+.press-item-source {
+  font-size: var(--t-micro);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.press-item-headline {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.35;
+}
+.press-item:hover .press-item-headline { text-decoration: underline; }
+
+/* ========== NEWS DETAIL ========== */
+.news-detail-hero {
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-bottom: 20px;
+  background: var(--surface-2);
+  aspect-ratio: 16 / 9;
+}
+.news-detail-hero img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.news-detail-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.news-detail-title {
+  font-family: 'Instrument Serif', Georgia, serif;
+  font-weight: 400;
+  font-size: var(--t-h1);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  margin-bottom: 12px;
+}
+
+.news-author {
+  font-size: var(--t-small);
+  color: var(--muted);
+  font-weight: 500;
+  margin-bottom: 22px;
+}
+
+.news-detail-body {
+  margin-bottom: 28px;
+}
+.news-detail-body p {
+  font-size: 1rem;
+  color: var(--ink-2);
+  line-height: 1.7;
+  margin-bottom: 16px;
+}
+.news-detail-body p:last-child { margin-bottom: 0; }
+
+.news-detail-cta {
+  margin-bottom: 36px;
+}
+
+.news-recommended {
+  border-top: 1px solid var(--line);
+  padding-top: 24px;
+}
+.news-recommended h3 {
+  font-size: var(--t-h3);
+  font-weight: 700;
+  letter-spacing: -0.005em;
+  margin-bottom: 14px;
+}
+
+/* ========== POLLS ========== */
+.poll-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; margin-bottom: 14px; }
+.poll-card:last-child { margin-bottom: 0; }
+.poll-eyebrow { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 6px; }
+.poll-heading { font-size: 1.05rem; font-weight: 700; color: var(--ink); margin-bottom: 4px; letter-spacing: -0.01em; }
+.poll-sub { font-size: 0.78rem; color: var(--muted); margin-bottom: 18px; }
+.poll-bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 9px; }
+.poll-bar-row:last-child { margin-bottom: 0; }
+.poll-bar-party { width: 108px; font-size: 0.83rem; font-weight: 600; color: var(--ink); flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.poll-bar-track { flex: 1; height: 7px; background: var(--chip); border-radius: 999px; overflow: hidden; }
+.poll-bar-fill { height: 100%; border-radius: 999px; }
+.poll-bar-pct { width: 32px; font-size: 0.83rem; font-weight: 700; color: var(--ink); text-align: right; flex-shrink: 0; }
+.poll-bar-chg { width: 30px; font-size: 0.72rem; font-weight: 600; text-align: right; flex-shrink: 0; }
+.poll-chg-up { color: var(--ok); }
+.poll-chg-dn { color: var(--hot); }
+.poll-chg-nc { color: var(--muted); }
+.poll-direction-wrap { margin: 14px 0 8px; }
+.poll-direction-bar { display: flex; border-radius: 999px; overflow: hidden; height: 10px; }
+.poll-direction-right { background: var(--ok); }
+.poll-direction-nc { background: var(--chip); }
+.poll-direction-wrong { background: var(--hot); opacity: 0.85; }
+.poll-direction-labels { display: flex; justify-content: space-between; margin-top: 8px; }
+.poll-direction-label { font-size: 0.78rem; color: var(--muted); }
+.poll-direction-label strong { color: var(--ink); font-weight: 700; }
+.poll-approval-legend { display: flex; gap: 14px; margin-bottom: 16px; flex-wrap: wrap; }
+.poll-approval-legend-item { display: flex; align-items: center; gap: 5px; font-size: 0.75rem; color: var(--muted); }
+.poll-approval-legend-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+.poll-approval-row { margin-bottom: 14px; }
+.poll-approval-row:last-child { margin-bottom: 0; }
+.poll-approval-row.is-my-mp { background: rgba(255,214,0,0.06); border-radius: var(--radius-sm); padding: 8px 10px; margin: -8px -10px 6px; }
+.poll-approval-header { display: flex; align-items: baseline; gap: 6px; margin-bottom: 6px; }
+.poll-approval-name { font-size: 0.9rem; font-weight: 700; color: var(--ink); }
+.poll-approval-net { font-size: 0.82rem; font-weight: 600; color: var(--muted); }
+.poll-approval-bar { display: flex; border-radius: 6px; overflow: hidden; height: 28px; }
+.poll-approval-seg { display: flex; align-items: center; justify-content: center; font-size: 0.72rem; font-weight: 700; color: rgba(255,255,255,0.9); min-width: 0; overflow: hidden; }
+.poll-approval-seg span { white-space: nowrap; }
+.poll-source { font-size: 0.72rem; color: var(--muted); margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+.poll-refresh { font-size: 0.78rem; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; background: none; border: none; cursor: pointer; padding: 0; margin-top: 16px; display: block; }
+.poll-refresh:hover { color: var(--ink); }
+.polls-updated { font-size: 0.75rem; color: var(--muted); padding: 4px 0 16px; }
+.mp-marker { display: inline-block; font-size: 0.68rem; font-weight: 700; background: var(--yellow); color: #0A0A0A; border-radius: 999px; padding: 1px 6px; margin-left: 6px; vertical-align: middle; line-height: 1.6; }
+.poll-vs-row { margin-bottom: 18px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
+.poll-vs-row:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
+.poll-vs-issue { font-size: 0.95rem; font-weight: 700; color: var(--ink); margin-bottom: 8px; }
+.poll-vs-badges { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0 10px; }
+.poll-vs-public { background: rgba(34,197,94,0.15); color: var(--ok); border-radius: 999px; padding: 5px 12px; font-size: 0.8rem; font-weight: 700; }
+.poll-vs-parliament { background: rgba(255,86,48,0.12); color: var(--hot); border-radius: 999px; padding: 5px 12px; font-size: 0.8rem; font-weight: 700; }
+.poll-vs-tension { font-size: 0.88rem; color: var(--ink-2); line-height: 1.55; }
+.poll-topic-row { margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--line); }
+.poll-topic-row:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
+.poll-topic-q { font-size: 0.9rem; font-weight: 600; color: var(--ink); margin-bottom: 10px; line-height: 1.4; }
+.poll-topic-split { display: flex; border-radius: 999px; overflow: hidden; height: 8px; margin-bottom: 8px; }
+.poll-topic-support { background: var(--ok); }
+.poll-topic-oppose { background: var(--hot); opacity: 0.75; }
+.poll-topic-nc { background: var(--chip); flex: 1; }
+.poll-topic-labels { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--muted); }
+.poll-topic-meta { font-size: 0.72rem; color: var(--muted); margin-top: 6px; }
+
+/* ========== ELECTION COUNTDOWN ========== */
+.election-countdown { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 14px; }
+.election-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
+.election-label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+.election-count { font-size: 1.5rem; font-weight: 800; color: var(--ink); letter-spacing: -0.03em; white-space: nowrap; }
+.election-count span { font-size: 0.78rem; font-weight: 600; color: var(--muted); margin-left: 5px; letter-spacing: 0; }
+.election-note { font-size: 0.72rem; color: var(--muted); }
+.poll-vi-sub { font-size: 0.875rem; color: var(--ink-2); margin-bottom: 16px; line-height: 1.45; }
+
+/* ========== KNOW YOUR PARTY ========== */
+.kyp-heading { font-size: 1.3rem; font-weight: 800; color: var(--ink); letter-spacing: -0.02em; margin: 24px 0 12px; }
+.party-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); margin-bottom: 8px; overflow: hidden; }
+.party-card:last-child { margin-bottom: 0; }
+.party-card-header { display: flex; align-items: center; gap: 14px; padding: 16px; cursor: pointer; width: 100%; text-align: left; background: none; border: none; }
+.party-color-bar { width: 4px; height: 44px; border-radius: 2px; flex-shrink: 0; }
+.party-name-wrap { flex: 1; min-width: 0; }
+.party-card-name { font-size: 1rem; font-weight: 700; color: var(--ink); }
+.party-card-meta { font-size: 0.8rem; color: var(--muted); margin-top: 3px; }
+.party-chevron { font-size: 1.1rem; color: var(--muted); flex-shrink: 0; transition: transform 0.22s ease; line-height: 1; }
+.party-card[data-open] .party-chevron { transform: rotate(180deg); }
+.party-card-body { display: none; padding: 16px 16px 20px; border-top: 1px solid var(--line); }
+.party-card[data-open] .party-card-body { display: block; animation: fadeIn 0.18s ease both; }
+.party-section { margin-bottom: 16px; }
+.party-section-label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); margin-bottom: 6px; }
+.party-section-text { font-size: 0.875rem; color: var(--ink-2); line-height: 1.55; }
+.party-facts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+.party-fact { font-size: 0.78rem; font-weight: 600; background: var(--surface-2); color: var(--ink); padding: 4px 10px; border-radius: 999px; }
+.party-leader-stats { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; padding: 12px; background: var(--surface-2); border-radius: var(--radius-sm); }
+.party-leader-stat { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 0.83rem; }
+.party-leader-stat-label { color: var(--muted); flex-shrink: 0; }
+.party-leader-stat-value { color: var(--ink); font-weight: 600; text-align: right; }
+.party-links { display: flex; gap: 8px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+.party-link { font-size: 0.82rem; font-weight: 700; color: var(--ink); background: var(--surface-2); padding: 8px 14px; border-radius: 999px; text-decoration: none; transition: background 0.15s; }
+.party-link:hover { background: var(--chip-hover); }
+
+</style>
+</head>
+<body>
+
+<div class="ptr-indicator" id="ptr-indicator"><div class="ptr-ring" id="ptr-ring"></div></div>
+
+<!-- ========== ONBOARDING ========== -->
+<section id="screen-onboarding" class="screen">
+  <div class="onb-progress">
+    <div class="onb-dot is-active" id="onb-dot-1"></div>
+    <div class="onb-dot" id="onb-dot-2"></div>
+    <div class="onb-dot" id="onb-dot-3"></div>
+  </div>
+
+  <!-- Step 1: Welcome -->
+  <div class="onb-step is-active" id="onb-step-1">
+    <div class="onb container">
+      <div class="onb-brand">Bills.</div>
+      <h1>Parliament is shaping your life.<br><em>You deserve to know.</em></h1>
+      <p class="lede">Every year, hundreds of laws pass through Westminster. Most people never hear about them until it's too late. Bills. tracks every piece of legislation in plain English — filtered to the things that actually matter to you.</p>
+      <div class="onb-why">
+        <strong>Why we built this</strong><br>
+        We were tired of finding out about laws that affected our lives after they'd already passed. A friend couldn't believe a bill changing their rights had been debated for months without them knowing. So we built Bills. — the tracker we wish had always existed.
+      </div>
+      <div class="onb-cta-wrap">
+        <button class="btn-primary" onclick="onbGoTo(2)">Get started →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 2: Interests -->
+  <div class="onb-step" id="onb-step-2">
+    <div class="onb container">
+      <div class="onb-eyebrow">Step 1 of 2 · Your interests</div>
+      <h1>What do you <em>care about?</em></h1>
+      <p class="lede">Pick at least one. We'll filter the feed to bills that affect you.</p>
+      <div class="topic-grid" id="onb-topics"></div>
+      <div class="onb-cta-wrap">
+        <button class="btn-primary" id="onb-topics-cta" disabled onclick="onbGoTo(3)">Continue →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 3: Your MP -->
+  <div class="onb-step" id="onb-step-3">
+    <div class="onb container">
+      <div class="onb-eyebrow">Step 2 of 2 · Your representative</div>
+      <h1>Find your <em>MP.</em></h1>
+      <p class="lede">Enter your postcode and we'll show you who speaks for you in Parliament.</p>
+      <div class="onb-postcode-row">
+        <input class="onb-postcode-input" type="text" id="onb-postcode" placeholder="e.g. SW1A 1AA" autocomplete="postal-code" />
+        <button class="btn-primary" id="onb-postcode-btn" onclick="onbFindMp()">Find</button>
+      </div>
+      <div id="onb-mp-result"></div>
+      <div class="onb-cta-stack">
+        <button class="btn-primary" id="onb-finish-btn" onclick="onbFinish()" style="display:none">Let's go →</button>
+        <button class="btn-ghost" onclick="onbFinish()">Skip for now</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== FEED ========== -->
+<section id="screen-feed" class="screen">
+  <div class="container">
+    <div class="feed-head">
+      <div class="feed-tabs">
+        <button class="feed-tab is-active" id="tab-bills" onclick="setFeedView('bills')"><em>Bills.</em></button>
+        <button class="feed-tab" id="tab-pulse" onclick="setFeedView('pulse')"><em>Pulse.</em></button>
+        <button class="feed-tab" id="tab-polls" onclick="setFeedView('polls')"><em>Polls.</em></button>
+      </div>
+      <div style="display:flex; gap:8px;">
+        <button class="support-pill" onclick="openSupport()" aria-label="Support us">Support us</button>
+        <button class="icon-btn" id="fav-filter-btn" onclick="toggleFavFilter()" aria-label="Favourites"></button>
+        <button class="icon-btn" onclick="showSettings()" aria-label="Settings">⚙</button>
+      </div>
+    </div>
+    <div class="feed-search-wrap">
+      <span class="feed-search-icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+      <input class="feed-search" id="bill-search" type="search" placeholder="Search bills…" oninput="onBillSearch(this.value)" autocomplete="off" spellcheck="false">
+      <button class="feed-search-clear" id="bill-search-clear" onclick="clearBillSearch()" aria-label="Clear search" hidden>×</button>
+    </div>
+    <div id="update-banners"></div>
+    <div id="bills-view">
+      <div class="bills" id="bills"></div>
+    </div>
+    <div id="pulse-view" hidden>
+      <div class="pulse-feed" id="pulse-feed"></div>
+    </div>
+    <div id="polls-view" hidden>
+      <div id="polls-content"><div class="loading">Loading polls…</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== NEWS DETAIL ========== -->
+<section id="screen-news-detail" class="screen">
+  <div class="container">
+    <div class="app-bar">
+      <button class="icon-btn" onclick="showNews()" aria-label="Back">←</button>
+      <div class="spacer"></div>
+    </div>
+    <div id="news-detail"></div>
+  </div>
+</section>
+
+<!-- ========== DETAIL ========== -->
+<section id="screen-detail" class="screen">
+  <div class="container">
+    <div class="app-bar">
+      <button class="icon-btn" onclick="showFeed()" aria-label="Back">←</button>
+      <div class="spacer"></div>
+      <button class="icon-btn" id="fav-btn" onclick="toggleWatch()" aria-label="Favourite this bill"></button>
+      <button class="icon-btn" onclick="shareBill()" aria-label="Share">↗</button>
+    </div>
+    <div id="detail"></div>
+  </div>
+</section>
+
+<!-- ========== SETTINGS ========== -->
+<section id="screen-settings" class="screen">
+  <div class="container">
+    <div class="app-bar">
+      <button class="icon-btn" onclick="showFeed()" aria-label="Back">←</button>
+      <div class="title">Settings</div>
+    </div>
+    <div class="settings-body">
+      <section>
+        <h2>Your topics</h2>
+        <p class="hint">Tap to toggle. We handle what bills match each topic for you.</p>
+        <div class="topic-search">
+          <input id="settings-search" type="text" placeholder="Search topics..." autocomplete="off" oninput="renderTopicPicker('settings-topics','settings-search')" />
+        </div>
+        <div class="topic-grid" id="settings-topics"></div>
+      </section>
+
+      <section>
+        <h2>Your local MP</h2>
+        <p class="hint">Enter your postcode and we'll flag bills sponsored by your MP in the dashboard.</p>
+        <div class="pc-row">
+          <input class="input" id="postcode-input" type="text" placeholder="SW1A 0AA" autocomplete="postal-code" />
+          <button class="btn-ghost" onclick="lookupMp()">Find MP</button>
+        </div>
+        <div id="mp-card"></div>
+      </section>
+
+      <section>
+        <h2>Email updates</h2>
+        <p class="hint">Get a digest sent to your inbox. Unsubscribe any time.</p>
+        <input class="input" id="email-input" type="email" placeholder="you@example.com" autocomplete="email" />
+        <div class="radio-group" id="email-freq">
+          <label class="radio-row"><input type="radio" name="freq" value="all" /> <span><strong>All bills</strong> — everything matching your topics</span></label>
+          <label class="radio-row"><input type="radio" name="freq" value="updates" /> <span><strong>Just updates</strong> — bills you're watching that move</span></label>
+          <label class="radio-row"><input type="radio" name="freq" value="mp" /> <span><strong>Just my local MP</strong> — when they sponsor a bill</span></label>
+          <label class="radio-row"><input type="radio" name="freq" value="off" /> <span><strong>No emails</strong></span></label>
+        </div>
+        <button class="btn-ghost" onclick="saveSubscription()" style="margin-top: 10px;">Save preferences</button>
+      </section>
+
+      <section>
+        <h2>Support us</h2>
+        <p class="hint">Keep this free for everyone. Buy us a coffee or chip in £3+ a month — we run on fumes.</p>
+        <button class="btn-primary support-btn" onclick="openSupport()">☕ Support this project</button>
+      </section>
+
+      <section>
+        <h2>Notifications</h2>
+        <p class="hint">When you open the app, we'll flag bills you're watching that have moved since last time.</p>
+        <label class="toggle-row">
+          <input type="checkbox" id="notif-toggle" />
+          Alert me about watched bills
+        </label>
+      </section>
+
+      <section>
+        <h2>Data</h2>
+        <p class="hint">Reset everything — topics, MP, email, watched bills, preferences.</p>
+        <button class="btn-ghost" onclick="resetAll()" style="color: var(--hot);">Reset app</button>
+      </section>
+    </div>
+  </div>
+</section>
+
+<!-- ========== EMAIL MP MODAL ========== -->
+<div class="modal" id="mp-email-modal" hidden>
+  <div class="modal-backdrop" onclick="closeMpEmail()"></div>
+  <div class="modal-body modal-body--wide">
+    <button class="modal-close" onclick="closeMpEmail()" aria-label="Close">×</button>
+    <div class="modal-eyebrow">Email your MP</div>
+    <h2 class="modal-title" id="mp-email-mp-name">Make your voice heard</h2>
+    <p class="modal-text" id="mp-email-sub">Pick a stance — we'll draft the message. You can edit before sending.</p>
+    <div class="stance-row">
+      <button class="stance-btn" data-stance="support" onclick="pickStance('support')">
+        <span class="stance-icon">✓</span>
+        <span>I support this bill</span>
+      </button>
+      <button class="stance-btn" data-stance="oppose" onclick="pickStance('oppose')">
+        <span class="stance-icon">×</span>
+        <span>I oppose this bill</span>
+      </button>
+    </div>
+    <div id="mp-email-draft" hidden>
+      <div class="email-field">
+        <label class="email-label">Subject</label>
+        <input class="input" id="mp-email-subject" type="text" />
+      </div>
+      <div class="email-field">
+        <label class="email-label">Message</label>
+        <textarea class="input email-body" id="mp-email-body" rows="12"></textarea>
+      </div>
+      <p class="modal-fine">Replace [Your name] before sending. Your MP's inbox will open in your default mail app.</p>
+      <div class="modal-actions">
+        <button class="btn-primary" onclick="openMailto()">Open in email app →</button>
+        <button class="btn-ghost" onclick="copyEmail()">Copy</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== SUPPORT MODAL ========== -->
+<div class="modal" id="support-modal" hidden>
+  <div class="modal-backdrop" onclick="closeSupport()"></div>
+  <div class="modal-body">
+    <button class="modal-close" onclick="closeSupport()" aria-label="Close">×</button>
+    <div class="modal-eyebrow">Keep this free</div>
+    <h2 class="modal-title">Buy us a coffee ☕</h2>
+    <p class="modal-text">We're running on fumes and good faith. Chip in once, or a few quid a month — whatever suits. It keeps the lights on and the data flowing.</p>
+    <div class="modal-actions">
+      <a class="btn-primary" href="https://www.buymeacoffee.com/" target="_blank" rel="noopener">One-off — £3</a>
+      <a class="btn-ghost" href="https://www.buymeacoffee.com/" target="_blank" rel="noopener">Monthly — £3+/mo</a>
+    </div>
+    <p class="modal-fine">Payments go through Buy Me a Coffee. No card details stored here.</p>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// CONSTANTS
+// ============================================================
+// Curated topics. Keywords hidden from users — we define how matching works.
+const TOPICS = [
+  { id: 'technology',    label: 'Technology',        color: '#6366F1', keywords: ['technology', 'software', 'digital', 'broadband', 'telecoms', 'semiconductor', 'online platform', 'internet', 'cybersecurity', 'data protection', 'privacy', 'personal data', 'biometric', 'online safety', 'age verification', 'ofcom', 'social media'] },
+  { id: 'ai',            label: 'AI',                color: '#7C3AED', keywords: ['artificial intelligence', ' ai ', 'ai bill', 'algorithm', 'automated decision', 'machine learning', 'generative'] },
+  { id: 'crypto',        label: 'Crypto',            color: '#F59E0B', keywords: ['cryptocurrency', 'crypto', 'digital asset', 'bitcoin', 'blockchain', 'stablecoin', 'cryptoasset'] },
+  { id: 'economy',       label: 'Economy',           color: '#15803D', keywords: ['economy', 'gdp', 'inflation', 'fiscal', 'budget', 'public finance', 'national insurance', 'tax ', 'corporation tax', ' vat ', 'universal credit', 'benefits', 'welfare', 'pension', 'carers'] },
+  { id: 'business',      label: 'Business',          color: '#0369A1', keywords: ['business', 'trade', 'corporation', 'company', 'enterprise', 'competition', 'market', 'commerce', 'farming', 'agriculture', 'rural', 'fisheries'] },
+  { id: 'current-affairs', label: 'Current Affairs', color: '#1E40AF', keywords: ['national security', 'terrorism', 'intelligence services', 'espionage', 'surveillance', 'defence', 'armed forces', 'military', 'veterans', 'elections', 'voter', 'electoral', 'constitution', 'house of lords', 'devolution', 'foreign'] },
+  { id: 'climate',       label: 'Climate',           color: '#16A34A', keywords: ['climate', 'net zero', 'carbon', 'emissions', 'renewable', 'fossil fuel', 'environment'] },
+  { id: 'health',        label: 'Health',            color: '#F43F5E', keywords: ['nhs', 'health service', 'tobacco', 'pharmacy', 'cancer', 'patient', 'healthcare', 'medicines', 'disability', 'disabled', 'accessibility', 'pip', ' sen '] },
+  { id: 'mental-health', label: 'Mental Health',     color: '#D946EF', keywords: ['mental health', 'camhs', 'psychiatric', 'wellbeing'] },
+  { id: 'education',     label: 'Education',         color: '#F97316', keywords: ['education', 'schools', 'teachers', 'university', 'student', 'children', 'child protection', 'safeguarding'] },
+  { id: 'women',         label: "Women's Rights",    color: '#E11D48', keywords: ['women', 'maternity', 'misogyny', 'domestic abuse', 'violence against women'] },
+  { id: 'trans',         label: 'Trans Rights',      color: '#60A5FA', keywords: ['trans ', 'transgender', 'gender identity', 'gender recognition', 'non-binary', 'conversion therapy', 'single-sex', 'puberty blocker', 'gender clinic', 'gender dysphoria', 'biological sex', 'sex-based', 'toilets', 'sports ban', 'tavistock'] },
+  { id: 'lgbtq',         label: 'LGBTQI+',           color: '#EC4899', keywords: ['lgbt', 'gay', 'lesbian', 'bisexual', 'same-sex', 'sexual orientation', 'queer', 'civil partnership', 'conversion practice', 'homophobia', 'hate crime'] },
+  { id: 'immigration',   label: 'Immigration',       color: '#0EA5E9', keywords: ['immigration', 'asylum', 'migrant', 'refugee', 'border', 'visa', 'nationality', 'deportation', 'detention', 'hostile environment', 'rwanda', 'stateless', 'right to remain', 'leave to remain', 'undocumented'] },
+  { id: 'workers',       label: "Workers' Rights",   color: '#A855F7', keywords: ['workers', 'employment', 'trade union', 'minimum wage', 'zero hours', 'housing', 'renters', 'leasehold', 'tenant', 'landlord'] },
+  { id: 'crime',         label: 'Crime & Justice',   color: '#475569', keywords: ['policing', 'police', 'criminal justice', 'stop and search', 'prisons', 'sentencing', 'protest', 'public order', 'pornography', 'sex work', 'intimate image', 'obscene', 'racial', 'racism', 'ethnicity', 'discrimination', 'hate crime', 'surveillance', 'facial recognition', 'counter-terrorism', 'serious disruption', 'injunction'] },
+];
+
+const TOPIC_BY_ID = Object.fromEntries(TOPICS.map((t) => [t.id, t]));
+const TOPIC_BY_LABEL = Object.fromEntries(TOPICS.map((t) => [t.label.toLowerCase(), t]));
+
+// Flat, minimalist bell.
+const BELL_SVG = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>`;
+const HEART_SVG = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>`;
+const STEP_CHECK_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 -960 960 960" fill="#fff" aria-hidden="true"><path d="M400-304 240-464l56-56 104 104 264-264 56 56-320 320Z"/></svg>`;
+
+// Sponsored ad slots. Add entries to display. 1200x400 (3:1) PNG/JPG/SVG recommended.
+// Leave empty to show placeholder tiles.
+const ADS = [
+  { image: '/ads/Stonewall_Ad.png', url: 'https://www.stonewall.org.uk/', alt: 'Stonewall' },
+];
+
+// ============================================================
+// MOCK BILLS — demo data so the dashboard looks populated.
+// Toggle with ?mock=0 to hide.
+// ============================================================
+const MOCK_BILLS = [
+  {
+    billId: 9001,
+    shortTitle: 'Gender Recognition (Reform) Bill',
+    longTitle: 'A Bill to reform the process by which a person may obtain a gender recognition certificate under the Gender Recognition Act 2004.',
+    summary: 'Removes the requirement for a medical diagnosis of gender dysphoria and introduces a statutory declaration model for legal gender recognition, following Scotland\'s lead.',
+    currentStage: { description: 'Second reading — Commons' },
+    lastUpdate: '2026-04-16T14:20:00',
+    originatingHouse: 'Commons',
+    sponsors: [{ member: { name: 'Kim Leadbeater MP' } }],
+    isMock: true,
+  },
+  {
+    billId: 9002,
+    shortTitle: 'Algorithmic Accountability Bill',
+    longTitle: 'A Bill to require transparency, impact assessments and human review for artificial intelligence systems used by public authorities.',
+    summary: 'Forces any algorithm or AI making decisions about benefits, policing, immigration or NHS access to be auditable, explainable, and appealable.',
+    currentStage: { description: 'Committee stage — Lords' },
+    lastUpdate: '2026-04-15T09:45:00',
+    originatingHouse: 'Lords',
+    sponsors: [{ member: { name: 'Baroness Kidron' } }],
+    isMock: true,
+  },
+  {
+    billId: 9003,
+    shortTitle: 'Conversion Practices (Prohibition) Bill',
+    longTitle: 'A Bill to prohibit practices intended to change a person\'s sexual orientation or gender identity.',
+    summary: 'Creates new criminal offences for conducting or advertising conversion therapy, with no carve-outs for religious settings. Covers LGBTQ and trans identities equally.',
+    currentStage: { description: 'Report stage — Commons' },
+    lastUpdate: '2026-04-14T16:10:00',
+    originatingHouse: 'Commons',
+    sponsors: [{ member: { name: 'Maria Miller MP' } }],
+    isMock: true,
+  },
+  {
+    billId: 9004,
+    shortTitle: 'Digital Assets and Stablecoin Regulation Bill',
+    longTitle: 'A Bill to regulate the issuance, custody and trading of cryptocurrency and fiat-backed stablecoins in the United Kingdom.',
+    summary: 'Brings stablecoins under FCA oversight, requires exchanges to be authorised, and bans algorithmic stablecoins marketed to retail investors.',
+    currentStage: { description: 'First reading — Commons' },
+    lastUpdate: '2026-04-14T11:30:00',
+    originatingHouse: 'Commons',
+    sponsors: [{ member: { name: 'Bim Afolami MP' } }],
+    isMock: true,
+  },
+  {
+    billId: 9005,
+    shortTitle: 'Investigatory Powers (Amendment) Bill',
+    longTitle: 'A Bill to extend bulk data collection powers and amend the Investigatory Powers Act 2016.',
+    summary: 'Expands what counts as a "bulk personal dataset" and loosens judicial oversight for intelligence services\' access to internet connection records.',
+    currentStage: { description: 'Second reading — Lords' },
+    lastUpdate: '2026-04-13T17:00:00',
+    originatingHouse: 'Commons',
+    sponsors: [{ member: { name: 'Dan Jarvis MP' } }],
+    isMock: true,
+  },
+  {
+    billId: 9006,
+    shortTitle: 'Renters\' Rights (No. 2) Bill',
+    longTitle: 'A Bill to abolish Section 21 evictions and introduce a national landlord register.',
+    summary: 'Finishes what the 2024 Renters Reform Bill started — ends no-fault evictions for good and makes every landlord in England register on a public database.',
+    currentStage: { description: 'Committee stage — Commons' },
+    lastUpdate: '2026-04-12T10:00:00',
+    originatingHouse: 'Commons',
+    sponsors: [{ member: { name: 'Angela Rayner MP' } }],
+    isMock: true,
+  },
+  {
+    billId: 9007,
+    shortTitle: 'Net Zero Accountability Bill',
+    longTitle: 'A Bill to impose binding statutory duties on ministers to meet the UK\'s carbon emissions targets.',
+    summary: 'Makes missing a five-year carbon budget a justiciable breach — the courts can force ministers back on track, not just the Climate Change Committee.',
+    currentStage: { description: 'Second reading — Commons' },
+    lastUpdate: '2026-04-11T13:20:00',
+    originatingHouse: 'Commons',
+    sponsors: [{ member: { name: 'Caroline Lucas MP' } }],
+    isMock: true,
+  },
+  {
+    billId: 9008,
+    shortTitle: 'Asylum Processing (Time Limits) Bill',
+    longTitle: 'A Bill to require the Home Office to decide asylum claims within six months of lodgement.',
+    summary: 'Introduces a statutory six-month deadline for initial asylum decisions, after which applicants gain the right to work. Aims to clear the 180,000-case backlog.',
+    currentStage: { description: 'First reading — Lords' },
+    lastUpdate: '2026-04-10T15:00:00',
+    originatingHouse: 'Lords',
+    sponsors: [{ member: { name: 'Lord Dubs' } }],
+    isMock: true,
+  },
+  {
+    billId: 9009,
+    shortTitle: 'Stop and Search (Reform) Bill',
+    longTitle: 'A Bill to require recording, publication and independent review of all stop-and-search encounters.',
+    summary: 'Mandates body-worn footage for every Section 60 stop, quarterly ethnicity breakdowns, and a right of complaint review by the IOPC.',
+    currentStage: { description: 'Report stage — Commons' },
+    lastUpdate: '2026-04-09T12:15:00',
+    originatingHouse: 'Commons',
+    sponsors: [{ member: { name: 'Diane Abbott MP' } }],
+    isMock: true,
+  },
+  {
+    billId: 9010,
+    shortTitle: 'Online Safety (Children and AI) Bill',
+    longTitle: 'A Bill to tighten age-verification duties and regulate AI-generated content affecting children.',
+    summary: 'Extends Ofcom\'s powers to cover generative AI services, bans deepfake image generators that lack age-check safeguards, and raises fines to 15% of global revenue.',
+    currentStage: { description: 'Committee stage — Commons' },
+    lastUpdate: '2026-04-08T09:00:00',
+    originatingHouse: 'Commons',
+    sponsors: [{ member: { name: 'Michelle Donelan MP' } }],
+    isMock: true,
+  },
+  {
+    billId: 9011,
+    shortTitle: 'Zero Hours Contracts (Ban) Bill',
+    longTitle: 'A Bill to prohibit exclusive zero-hours contracts and grant a right to guaranteed hours after 12 weeks.',
+    summary: 'After three months of regular shifts, a worker on a zero-hours contract would be entitled to a contract reflecting their actual pattern. Trade union enforceable.',
+    currentStage: { description: 'Second reading — Commons' },
+    lastUpdate: '2026-04-07T14:40:00',
+    originatingHouse: 'Commons',
+    sponsors: [{ member: { name: 'Justin Madders MP' } }],
+    isMock: true,
+  },
+  {
+    billId: 9012,
+    shortTitle: 'Mental Health (Young People) Bill',
+    longTitle: 'A Bill to establish a statutory four-week waiting-time standard for children\'s mental health services.',
+    summary: 'Legally binds CAMHS to a four-week maximum between referral and first assessment, backed by ring-fenced NHS funding.',
+    currentStage: { description: 'First reading — Commons' },
+    lastUpdate: '2026-04-06T11:00:00',
+    originatingHouse: 'Commons',
+    sponsors: [{ member: { name: 'Dr Rosena Allin-Khan MP' } }],
+    isMock: true,
+  },
+];
+
+// ============================================================
+// STATE
+// ============================================================
+let state = {
+  topics: [],
+  bills: [],
+  matchedBills: [],
+  currentFilter: 'all',
+  searchQuery: '',
+  feedView: 'bills',
+
+  detailBill: null,
+  detailData: null,
+  watched: {},
+  aiCache: {},
+  summariesIndex: {}, // billId -> { tile_summary, affected_groups: [{topic_id, stance}] }
+  notifEnabled: false,
+  lastSeenUpdates: {},
+  postcode: '',
+  mp: null,
+  email: '',
+  emailFrequency: 'updates',
+};
+
+function save() {
+  localStorage.setItem('ukbt:state', JSON.stringify({
+    topics: state.topics,
+    watched: state.watched,
+    aiCache: state.aiCache,
+    notifEnabled: state.notifEnabled,
+    lastSeenUpdates: state.lastSeenUpdates,
+    postcode: state.postcode,
+    mp: state.mp,
+    email: state.email,
+    emailFrequency: state.emailFrequency,
+  }));
+}
+
+function load() {
+  try {
+    const s = JSON.parse(localStorage.getItem('ukbt:state') || '{}');
+    Object.assign(state, s);
+  } catch {}
+  if (!state.topics) state.topics = [];
+  // Re-resolve topic IDs against curated list (drops stale custom topics, refreshes shape/colour).
+  state.topics = state.topics
+    .map((t) => TOPIC_BY_ID[t.id || t])
+    .filter(Boolean);
+  if (!state.watched) state.watched = {};
+  if (!state.aiCache) state.aiCache = {};
+  if (!state.lastSeenUpdates) state.lastSeenUpdates = {};
+}
+
+// ============================================================
+// ROUTER
+// ============================================================
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('is-active'));
+  document.getElementById(`screen-${id}`).classList.add('is-active');
+  window.scrollTo(0, 0);
+}
+
+function showFeed() {
+  showScreen('feed');
+  setFeedView(state.feedView || 'bills');
+  renderFeed();
+  renderUpdateBanners();
+}
+
+function showSettings() {
+  showScreen('settings');
+  renderSettings();
+}
+
+// ============================================================
+// HELPERS
+// ============================================================
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function formatDate(iso, long) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (long) return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+}
+
+function toast(msg) {
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2000);
+}
+
+// ============================================================
+// ONBOARDING
+// ============================================================
+function onbGoTo(step) {
+  document.querySelectorAll('.onb-step').forEach((s) => s.classList.remove('is-active'));
+  document.getElementById(`onb-step-${step}`).classList.add('is-active');
+  for (let i = 1; i <= 3; i++) {
+    document.getElementById(`onb-dot-${i}`).classList.toggle('is-active', i === step);
+  }
+  window.scrollTo(0, 0);
+  if (step === 2) {
+    renderTopicPicker('onb-topics', null, () => {
+      document.getElementById('onb-topics-cta').disabled = state.topics.length === 0;
+    });
+    document.getElementById('onb-topics-cta').disabled = state.topics.length === 0;
+  }
+  if (step === 3) {
+    document.getElementById('onb-postcode').value = state.postcode || '';
+    if (state.mp) renderOnbMpCard(state.mp, state.postcode);
+  }
+}
+
+function renderOnbMpCard(mp, constituency) {
+  const resultEl = document.getElementById('onb-mp-result');
+  resultEl.innerHTML = `<div class="onb-mp-card">
+    ${mp.thumbnailUrl ? `<img class="onb-mp-thumb" src="${escapeHtml(mp.thumbnailUrl)}" alt="" />` : ''}
+    <div>
+      <div class="onb-mp-name">${escapeHtml(mp.name)}</div>
+      <div class="onb-mp-meta">${escapeHtml(constituency || '')} · <span style="color:${escapeHtml(mp.partyColor || '#888')}">${escapeHtml(mp.party)}</span></div>
+    </div>
+  </div>`;
+  document.getElementById('onb-finish-btn').style.display = '';
+}
+
+async function onbFindMp() {
+  const input = document.getElementById('onb-postcode');
+  const postcode = input.value.trim();
+  if (!postcode) { input.focus(); return; }
+  const btn = document.getElementById('onb-postcode-btn');
+  const resultEl = document.getElementById('onb-mp-result');
+  btn.textContent = '...';
+  btn.disabled = true;
+  resultEl.innerHTML = '';
+  try {
+    const res = await fetch(`/api/mp?postcode=${encodeURIComponent(postcode)}`);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    state.postcode = data.postcode;
+    state.mp = data.mp;
+    save();
+    renderOnbMpCard(data.mp, data.constituency);
+  } catch (err) {
+    resultEl.innerHTML = `<p class="onb-mp-error">${escapeHtml(err.message)}</p>`;
+    document.getElementById('onb-finish-btn').style.display = '';
+  }
+  btn.textContent = 'Find';
+  btn.disabled = false;
+}
+
+function onbFinish() {
+  save();
+  showScreen('feed');
+  loadBills();
+}
+
+// Shared topic picker used by onboarding + settings.
+function renderTopicPicker(gridId, searchId, onChange) {
+  const grid = document.getElementById(gridId);
+  if (!grid) return;
+  const searchEl = searchId ? document.getElementById(searchId) : null;
+  const query = (searchEl?.value || '').trim().toLowerCase();
+  const selectedIds = new Set(state.topics.map((t) => t.id));
+  const list = TOPICS.filter((t) => !query || t.label.toLowerCase().includes(query));
+  grid.innerHTML = '';
+  if (list.length === 0) {
+    grid.innerHTML = `<div class="picker-empty">No topics match "${escapeHtml(query)}".</div>`;
+    return;
+  }
+  list.forEach((t) => {
+    const active = selectedIds.has(t.id);
+    const card = document.createElement('button');
+    card.className = `topic-card ${active ? 'is-active' : ''}`;
+    if (active) card.style.setProperty('--topic-color', t.color);
+    card.innerHTML = `<span class="topic-dot" style="background:${t.color}"></span><span class="topic-label">${escapeHtml(t.label)}</span>`;
+    card.onclick = () => {
+      if (active) {
+        state.topics = state.topics.filter((s) => s.id !== t.id);
+      } else {
+        state.topics.push(TOPIC_BY_ID[t.id]);
+      }
+      save();
+      renderTopicPicker(gridId, searchId, onChange);
+      if (onChange) onChange();
+    };
+    grid.appendChild(card);
+  });
+}
+
+// ============================================================
+// FEED
+// ============================================================
+async function loadBills() {
+  const billsEl = document.getElementById('bills');
+  const useMocks = new URLSearchParams(location.search).get('mock') === '1';
+  billsEl.innerHTML = '<div class="loading">Loading bills from Parliament...</div>';
+  // Kick off summaries-index fetch in parallel — doesn't block the feed.
+  fetch('/api/summaries').then((r) => r.ok ? r.json() : {}).then((idx) => {
+    state.summariesIndex = idx || {};
+    renderFeed();
+  }).catch(() => {});
+  try {
+    const res = await fetch('/api/bills?SortOrder=DateUpdatedDescending&take=200');
+    if (!res.ok) throw new Error(`API returned ${res.status}`);
+    const data = await res.json();
+    const live = data.items || [];
+    state.bills = useMocks ? [...MOCK_BILLS, ...live] : live;
+    matchBillsToTopics();
+    renderUpdateBanners();
+    renderFeed();
+  } catch (err) {
+    state.bills = useMocks ? [...MOCK_BILLS] : [];
+    matchBillsToTopics();
+    renderFeed();
+    if (!useMocks) {
+      billsEl.innerHTML = `<div class="empty"><h3>Couldn't reach Parliament.</h3><p>${escapeHtml(err.message)}. Check your connection and try again.</p></div>`;
+    }
+  }
+}
+
+// Run keyword matching against the full curated catalog — not just a user's subscriptions.
+// Used for AI analysis so the server cache is comprehensive and shared across all users.
+function allTopicsForBill(bill) {
+  const haystack = ` ${(bill.shortTitle || '')} ${(bill.longTitle || '')} ${(bill.summary || '')} `.toLowerCase();
+  return TOPICS.filter((topic) =>
+    topic.keywords.some((kw) => haystack.includes(kw.toLowerCase()))
+  );
+}
+
+function matchBillsToTopics() {
+  state.matchedBills = state.bills.map((bill) => {
+    const haystack = ` ${(bill.shortTitle || '')} ${(bill.longTitle || '')} ${(bill.summary || '')} `.toLowerCase();
+    const matchedTopics = state.topics.filter((topic) =>
+      topic.keywords.some((kw) => haystack.includes(kw.toLowerCase()))
+    );
+    return { ...bill, topics: matchedTopics };
+  }).filter((b) => b.topics.length > 0);
+}
+
+function renderTicker() {
+  const el = document.getElementById('ticker');
+  const track = document.getElementById('ticker-track');
+  if (!el || !track) return;
+  const sorted = [...state.matchedBills]
+    .filter((b) => b.lastUpdate)
+    .sort((a, b) => new Date(b.lastUpdate) - new Date(a.lastUpdate))
+    .slice(0, 10);
+  if (sorted.length === 0) { el.hidden = true; return; }
+  el.hidden = false;
+  const items = sorted.map((b) => {
+    const stage = b.currentStage?.description || 'updated';
+    const title = (b.shortTitle || '').replace(/ Bill$/i, '');
+    return `<span class="ticker-item" onclick="openBill(${b.billId})">
+      <span class="ticker-dot"></span>
+      <strong>${escapeHtml(title)}</strong>&nbsp;— ${escapeHtml(stage)}
+    </span>`;
+  }).join('');
+  track.innerHTML = items + items;
+}
+
+function setFilter(id) {
+  state.currentFilter = id;
+  if (state.feedView === 'pulse') renderPulse();
+  else renderFeed();
+}
+
+function renderAdTile(index) {
+  const ad = ADS[index % Math.max(1, ADS.length)];
+  if (!ad) {
+    return `<a class="ad-tile ad-tile--placeholder" href="#" onclick="event.preventDefault()" aria-label="Ad placement">
+      <div>
+        <span class="ph-eyebrow">Sponsored</span>
+        <span>Your message could go here.</span>
+        <span class="ph-spec">1200 × 400 · 3:1</span>
+      </div>
+    </a>`;
+  }
+  return `<a class="ad-tile" href="${escapeHtml(ad.url)}" target="_blank" rel="noopener sponsored">
+    <img src="${escapeHtml(ad.image)}" alt="${escapeHtml(ad.alt || 'Sponsor')}" />
+  </a>`;
+}
+
+function renderFeed() {
+  const el = document.getElementById('bills');
+  renderTicker();
+  const favBtn = document.getElementById('fav-filter-btn');
+  if (favBtn) favBtn.classList.toggle('is-active', state.currentFilter === 'favorites');
+  let filtered = state.currentFilter === 'all'
+    ? state.matchedBills
+    : state.currentFilter === 'favorites'
+    ? state.matchedBills.filter((b) => !!state.watched[b.billId])
+    : state.matchedBills.filter((b) => b.topics.some((t) => t.id === state.currentFilter));
+  if (state.searchQuery) {
+    const q = state.searchQuery.toLowerCase();
+    filtered = filtered.filter((b) =>
+      (b.shortTitle || b.longTitle || '').toLowerCase().includes(q) ||
+      (b.longTitle || '').toLowerCase().includes(q) ||
+      (b.summary || '').toLowerCase().includes(q)
+    );
+  }
+  const list = [...filtered].sort((a, b) => new Date(b.lastUpdate || 0) - new Date(a.lastUpdate || 0));
+  if (list.length === 0) {
+    const emptyMsg = state.searchQuery
+      ? `<div class="empty"><h3>No results.</h3><p>Try different keywords.</p></div>`
+      : state.currentFilter === 'favorites'
+      ? `<div class="empty"><h3>No favourites yet.</h3><p>Open a bill and tap the heart to save it here.</p></div>`
+      : `<div class="empty"><h3>Nothing matching yet.</h3><p>Parliament is quieter some weeks than others. Try broadening your keywords in settings, or check back in a few days.</p></div>`;
+    el.innerHTML = emptyMsg;
+    return;
+  }
+  // Insert an ad after every 6 bills.
+  const pieces = [];
+  let adIndex = 0;
+  list.forEach((bill, i) => {
+    pieces.push(renderBillCard(bill));
+    if ((i + 1) % 6 === 0 && i !== list.length - 1) {
+      pieces.push(renderAdTile(adIndex++));
+    }
+  });
+  el.innerHTML = pieces.join('');
+}
+
+function refreshFeed() {
+  state.currentFilter = 'all';
+  loadBills();
+}
+
+// Critical = bill is close to becoming law. Defeated/Act bills are neither.
+function isBillCritical(bill) {
+  if (bill.isAct || bill.billWithdrawn || bill.isDefeated) return false;
+  const progress = computeProgress(bill, bill);
+  let remaining = 0;
+  let reachedFinal = false;
+  progress.colOrder.forEach((col) => {
+    progress.stages[col].forEach((s) => {
+      if (s.state === 'todo') remaining++;
+      if (col === 'final' && s.state !== 'todo') reachedFinal = true;
+    });
+  });
+  return reachedFinal || remaining <= 2;
+}
+
+
+// Compute overall stance for a bill, restricted to the user's subscribed topics
+// that intersect the cached analysis. Returns null if no stance data available.
+function computeOverallStance(bill) {
+  const idx = state.summariesIndex[bill.billId];
+  if (!idx || !Array.isArray(idx.affected_groups)) return null;
+  const subscribed = new Set(state.topics.map((t) => t.id));
+  const relevant = idx.affected_groups.filter(
+    (g) => g.topic_id && subscribed.has(g.topic_id) && g.stance
+  );
+  if (relevant.length === 0) return null;
+  const counts = { positive: 0, negative: 0, mixed: 0, neutral: 0 };
+  relevant.forEach((g) => { counts[g.stance] = (counts[g.stance] || 0) + 1; });
+  const material = counts.positive + counts.negative + counts.mixed;
+  if (material === 0) return 'neutral';
+  if (counts.mixed > 0) return 'mixed';
+  if (counts.positive > 0 && counts.negative > 0) return 'mixed';
+  if (counts.positive > 0) return 'positive';
+  if (counts.negative > 0) return 'negative';
+  return 'neutral';
+}
+
+const STANCE_LABELS = {
+  positive: 'Good',
+  negative: 'Bad',
+  mixed: 'Mixed',
+  neutral: null,
+};
+
+function plainStage(stage, house) {
+  if (!stage) return '';
+  const s = stage.toLowerCase();
+  const h = (house || '').toLowerCase();
+  const where = h.includes('lords') ? 'the Lords' : h.includes('commons') ? 'the Commons' : 'Parliament';
+  if (s.includes('royal assent')) return 'Now law ✓';
+  if (s.includes('third reading')) return `Final vote — ${where}`;
+  if (s.includes('report stage')) return `Being finalised — ${where}`;
+  if (s.includes('committee')) return `Being examined line by line — ${where}`;
+  if (s.includes('second reading')) return `Being debated — ${where}`;
+  if (s.includes('first reading')) return `Just introduced — ${where}`;
+  if (s.includes('ping pong') || s.includes('consideration of amendments')) return 'Going back and forth between Houses';
+  if (s.includes('withdrawn')) return 'Withdrawn';
+  if (s.includes('defeated')) return 'Defeated';
+  return stage;
+}
+
+
+function cleanLongTitle(long) {
+  if (!long) return '';
+  // Parliament longTitles start "A Bill to ..." — trim and decapitalise the first real word for flow.
+  return long.replace(/^a\s+bill\s+(to\s+make\s+provision\s+(about|for)\s+)?/i, '').replace(/^./, (c) => c.toUpperCase());
+}
+
+function renderBillCard(bill) {
+  const watching = !!state.watched[bill.billId];
+  const byMp = isByMyMp(bill);
+  const pills = bill.topics.slice(0, 3).map((t) =>
+    `<span class="topic-pill" style="background:${t.color};color:white">${escapeHtml(t.label)}</span>`
+  ).join('');
+  const extras = bill.topics.length > 3 ? `<span class="topic-pill topic-pill--more">+${bill.topics.length - 3}</span>` : '';
+  const stage = bill.currentStage?.description || '';
+  const mpPill = byMp && state.mp
+    ? `<span class="topic-pill topic-pill--mp" style="--mp-color:${state.mp.partyColor}">Your MP</span>`
+    : '';
+  const cardStyle = byMp && state.mp ? `style="--mp-color:${state.mp.partyColor}"` : '';
+
+  const summaryText =
+    (state.summariesIndex[bill.billId] && state.summariesIndex[bill.billId].tile_summary) ||
+    bill.summary ||
+    cleanLongTitle(bill.longTitle);
+
+  const stagePlain = plainStage(stage, bill.currentHouse || bill.originatingHouse);
+
+  return `
+    <article class="bill-card ${byMp ? 'is-by-mp' : ''}" ${cardStyle} data-bill-id="${bill.billId}" onclick="openBill(${bill.billId})">
+      <div class="bill-topics">
+        ${mpPill}${pills}${extras}
+        ${watching ? `<span class="topic-pill topic-pill--watch">${HEART_SVG} Saved</span>` : ''}
+      </div>
+      <h2 class="bill-title">${escapeHtml(bill.shortTitle || bill.longTitle)}</h2>
+      ${summaryText ? `<p class="bill-summary">${escapeHtml(summaryText)}</p>` : ''}
+      ${stagePlain ? `<div class="bill-foot"><span class="bill-stage-plain">${escapeHtml(stagePlain)}</span></div>` : ''}
+    </article>
+  `;
+}
+
+// ============================================================
+// UPDATE BANNERS (watched bills that moved)
+// ============================================================
+function renderUpdateBanners() {
+  const el = document.getElementById('update-banners');
+  if (!el) return;
+  const updates = [];
+  Object.keys(state.watched).forEach(id => {
+    const fresh = state.bills.find(b => String(b.billId) === String(id));
+    if (!fresh) return;
+    const lastSeen = state.lastSeenUpdates[id];
+    if (lastSeen && lastSeen !== fresh.lastUpdate) {
+      updates.push(fresh);
+    }
+  });
+  if (updates.length === 0) { el.innerHTML = ''; return; }
+  el.innerHTML = updates.map(b => `
+    <div class="update-banner">
+      <div>${BELL_SVG} <strong>${escapeHtml(b.shortTitle)}</strong> just moved</div>
+      <button onclick="openBill(${b.billId})">View →</button>
+    </div>
+  `).join('');
+}
+
+// ============================================================
+// DETAIL
+// ============================================================
+async function openBill(id) {
+  const bill = state.matchedBills.find(b => b.billId === id) || state.bills.find(b => b.billId === id);
+  if (!bill) return;
+  if (!bill.topics) {
+    const haystack = ` ${(bill.shortTitle || '')} ${(bill.longTitle || '')} ${(bill.summary || '')} `.toLowerCase();
+    bill.topics = state.topics.filter(t => t.keywords.some(kw => haystack.includes(kw.toLowerCase())));
+  }
+  state.detailBill = bill;
+  if (state.watched[id]) {
+    state.lastSeenUpdates[id] = bill.lastUpdate;
+    save();
+  }
+  showScreen('detail');
+  document.getElementById('detail').innerHTML = '<div class="loading">Loading bill...</div>';
+  if (bill.isMock) {
+    state.detailData = bill;
+    renderDetail(bill, bill);
+    return;
+  }
+  try {
+    const res = await fetch(`/api/bill/${id}`);
+    if (!res.ok) throw new Error(`API ${res.status}`);
+    const detail = await res.json();
+    state.detailData = detail;
+    renderDetail(bill, detail);
+  } catch (err) {
+    document.getElementById('detail').innerHTML = `<div class="empty"><h3>Couldn't load.</h3><p>${escapeHtml(err.message)}</p></div>`;
+  }
+}
+
+// ============================================================
+// PASSAGE TIMELINE
+// ============================================================
+const TIMELINE_STAGES = {
+  commons: [
+    { key: '1st', label: '1st reading' },
+    { key: '2nd', label: '2nd reading' },
+    { key: 'committee', label: 'Committee stage' },
+    { key: 'report', label: 'Report stage' },
+    { key: '3rd', label: '3rd reading' },
+  ],
+  lords: [
+    { key: '1st', label: '1st reading' },
+    { key: '2nd', label: '2nd reading' },
+    { key: 'committee', label: 'Committee stage' },
+    { key: 'report', label: 'Report stage' },
+    { key: '3rd', label: '3rd reading' },
+  ],
+  final: [
+    { key: 'coa', label: 'Consideration of amendments' },
+    { key: 'assent', label: 'Royal Assent' },
+  ],
+};
+
+function categoriseStage(stage) {
+  if (!stage) return { col: 'commons', key: '1st' };
+  const desc = (stage.description || '').toLowerCase();
+  const house = (stage.house || '').toLowerCase();
+  if (desc.includes('royal assent')) return { col: 'final', key: 'assent' };
+  if (desc.includes('consideration of') || desc.includes('ping pong') || desc.includes('amendments')) {
+    return { col: 'final', key: 'coa' };
+  }
+  const col = house.includes('lord') ? 'lords' : (house.includes('common') ? 'commons' : 'commons');
+  let key = '1st';
+  if (desc.includes('3rd') || desc.includes('third reading')) key = '3rd';
+  else if (desc.includes('report')) key = 'report';
+  else if (desc.includes('committee')) key = 'committee';
+  else if (desc.includes('2nd') || desc.includes('second reading')) key = '2nd';
+  else if (desc.includes('1st') || desc.includes('first reading')) key = '1st';
+  return { col, key };
+}
+
+function computeProgress(bill, detail) {
+  const originating = ((detail.originatingHouse || bill.originatingHouse) || 'Commons').toLowerCase();
+  const current = categoriseStage(detail.currentStage || bill.currentStage);
+  const isAct = !!detail.isAct;
+  const colOrder = originating.includes('lord')
+    ? ['lords', 'commons', 'final']
+    : ['commons', 'lords', 'final'];
+  const currentColIdx = colOrder.indexOf(current.col);
+  const stages = { commons: [], lords: [], final: [] };
+  colOrder.forEach((col, colIdx) => {
+    TIMELINE_STAGES[col].forEach((stage, stageIdx) => {
+      let state;
+      if (isAct) state = 'done';
+      else if (colIdx < currentColIdx) state = 'done';
+      else if (colIdx === currentColIdx) {
+        const pos = TIMELINE_STAGES[col].findIndex(s => s.key === current.key);
+        if (stageIdx < pos) state = 'done';
+        else if (stageIdx === pos) state = 'current';
+        else state = 'todo';
+      } else state = 'todo';
+      stages[col].push({ ...stage, state });
+    });
+  });
+  return { colOrder, stages, isAct };
+}
+
+function renderStepper(progress, bill, detail) {
+  const isAct = progress.isAct;
+  const isLordsFirst = progress.colOrder[0] === 'lords';
+
+  const steps = [
+    { label: isLordsFirst ? 'Lords' : 'Commons' },
+    { label: isLordsFirst ? 'Commons' : 'Lords' },
+    { label: 'Final stages' },
+    { label: 'Law' },
+  ];
+
+  // Find which col index (0,1,2) is currently active
+  let currentColIdx = -1;
+  progress.colOrder.forEach((col, idx) => {
+    if (progress.stages[col].some((s) => s.state === 'current')) currentColIdx = idx;
+  });
+  if (currentColIdx === -1 && !isAct) currentColIdx = 0;
+
+  return `<div class="bill-stepper">
+    ${steps.map((step, i) => {
+      let state;
+      if (isAct) state = 'done';
+      else if (i === 3) state = 'todo'; // Law only done when isAct
+      else if (i < currentColIdx) state = 'done';
+      else if (i === currentColIdx) state = 'current';
+      else state = 'todo';
+      const inner = state === 'done' ? STEP_CHECK_SVG : String(i + 1);
+      return `<div class="step-item ${state}">
+        <div class="step-dot">${inner}</div>
+        <div class="step-label">${step.label}</div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+// ============================================================
+// DETAIL RENDER
+// ============================================================
+function renderDetail(bill, detail) {
+  const url = `https://bills.parliament.uk/bills/${bill.billId}`;
+  const stageLabel = detail.currentStage?.description || bill.currentStage?.description || '';
+  const house = detail.originatingHouse || detail.currentHouse || bill.originatingHouse || '';
+  const sponsor = detail.sponsors?.[0]?.member?.name || detail.sponsors?.[0]?.organisation?.name || '';
+  const session = detail.includedSessions?.[0]?.name || '';
+  const longTitle = detail.longTitle || bill.longTitle || '';
+  const officialSummary = detail.summary || bill.summary || '';
+  const isAct = !!detail.isAct;
+  const isDefeated = !!(detail.billWithdrawn || detail.isDefeated);
+
+  const topicsHtml = bill.topics.map((t) =>
+    `<span class="topic-pill" style="background:${t.color};color:white">${escapeHtml(t.label)}</span>`
+  ).join(' ');
+
+  const progress = computeProgress(bill, detail);
+
+  const statusBits = [];
+  if (isAct) statusBits.push('<strong style="color:var(--ok)">✓ Now law</strong>');
+  else if (isDefeated) statusBits.push('<strong style="color:var(--hot)">Defeated</strong>');
+  else if (stageLabel) statusBits.push(`<strong>${escapeHtml(stageLabel)}</strong>`);
+  if (house) statusBits.push(escapeHtml(house));
+  if (bill.lastUpdate) statusBits.push(`Updated ${formatDate(bill.lastUpdate)}`);
+
+  const downloadLabel = bill.isMock ? 'Download PDF (demo)' : 'Download bill as PDF';
+
+  document.getElementById('detail').innerHTML = `
+    <div class="bill-topics" style="margin-bottom: 14px;">
+      ${isByMyMp(bill) && state.mp ? `<span class="topic-pill topic-pill--mp" style="--mp-color:${state.mp.partyColor}">Your MP</span>` : ''}
+      ${topicsHtml || '<span class="topic-pill">Bill</span>'}
+      ${isAct ? '<span class="topic-pill" style="background:#16A34A;color:white">✓ Now law</span>' : ''}
+      ${isDefeated ? '<span class="topic-pill" style="background:#DC2626;color:white">Defeated</span>' : ''}
+    </div>
+    <h1 class="detail-title">${escapeHtml(bill.shortTitle || bill.longTitle)}</h1>
+    <div class="detail-status">
+      ${statusBits.join('<span class="meta-sep">·</span>')}
+    </div>
+
+    <div id="mp-vote-bar"></div>
+
+    <section class="detail-section" id="ai-summary" style="margin-top:0; margin-bottom:0;"></section>
+
+    <section class="detail-actions">
+      <button class="btn-primary" onclick="downloadPdf()">${downloadLabel} ↓</button>
+      <button class="btn-ghost" onclick="openMpEmail()">Email your MP</button>
+    </section>
+
+    ${renderStepper(progress, bill, detail)}
+
+    <div>
+      ${officialSummary ? `
+        <details class="drawer">
+          <summary>Parliament's own summary</summary>
+          <div class="drawer-body"><p>${escapeHtml(officialSummary)}</p></div>
+        </details>
+      ` : ''}
+
+      <details class="drawer">
+        <summary>Bill details</summary>
+        <div class="drawer-body">
+          ${longTitle ? `<p style="margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px solid var(--line);"><strong style="color:var(--ink); display:block; font-size:var(--t-micro); letter-spacing:0.08em; text-transform:uppercase; color:var(--muted); margin-bottom:6px;">Full title</strong>${escapeHtml(longTitle)}</p>` : ''}
+          ${house ? `<div class="meta-row"><span class="meta-label">House</span><span class="meta-value">${escapeHtml(house)}</span></div>` : ''}
+          ${sponsor ? `<div class="meta-row"><span class="meta-label">Sponsor</span><span class="meta-value">${escapeHtml(sponsor)}</span></div>` : ''}
+          ${session ? `<div class="meta-row"><span class="meta-label">Session</span><span class="meta-value">${escapeHtml(session)}</span></div>` : ''}
+          ${bill.lastUpdate ? `<div class="meta-row"><span class="meta-label">Last update</span><span class="meta-value">${formatDate(bill.lastUpdate, true)}</span></div>` : ''}
+          ${stageLabel ? `<div class="meta-row"><span class="meta-label">Current stage</span><span class="meta-value">${escapeHtml(stageLabel)}</span></div>` : ''}
+        </div>
+      </details>
+
+      <details class="drawer" id="petitions-drawer" ontoggle="handlePetitionsToggle(this)">
+        <summary>Related open petitions</summary>
+        <div class="drawer-body" id="petitions">
+          <div class="loading" style="padding: 10px 0;">Loading petitions...</div>
+        </div>
+      </details>
+    </div>
+
+    <a class="ghost-link" href="${url}" target="_blank" rel="noopener">View on parliament.uk ↗</a>
+  `;
+
+  const watchBtn = document.getElementById('fav-btn');
+  watchBtn.classList.toggle('is-active', !!state.watched[bill.billId]);
+
+  runAiSummary(bill, detail);
+  if (state.mp && state.mp.id && !bill.isMock) loadMpVote(bill);
+}
+
+// ============================================================
+// MP VOTE
+// ============================================================
+async function loadMpVote(bill) {
+  const el = document.getElementById('mp-vote-bar');
+  if (!el || !state.mp) return;
+
+  // Sponsor check — instant, no API needed
+  if (isByMyMp(bill)) {
+    el.innerHTML = `<div class="mp-vote-bar is-introduced">★ Your MP introduced this bill</div>`;
+    return;
+  }
+
+  try {
+    const params = new URLSearchParams({
+      mpId: state.mp.id,
+      billId: bill.billId,
+      billTitle: bill.shortTitle || bill.longTitle || '',
+    });
+    const res = await fetch(`/api/mp-vote?${params}`);
+    const data = await res.json();
+    if (data.error || !el) return;
+
+    if (data.vote === 'aye') {
+      el.innerHTML = `<div class="mp-vote-bar is-for">✓ Your MP voted for this bill</div>`;
+    } else if (data.vote === 'noe') {
+      el.innerHTML = `<div class="mp-vote-bar is-against">✕ Your MP voted against this bill</div>`;
+    } else {
+      el.innerHTML = `<div class="mp-vote-bar is-none">— No vote on record for your MP</div>`;
+    }
+  } catch {}
+}
+
+// ============================================================
+// BILL REACTION — critics, supporters, press coverage
+// ============================================================
+async function loadBillReaction(bill) {
+  const el = document.getElementById('bill-reaction');
+  if (!el) return;
+  el.innerHTML = '';
+
+  const [pressResult, reactionResult] = await Promise.allSettled([
+    fetch(`/api/bill-press?title=${encodeURIComponent(bill.shortTitle)}`).then((r) => r.json()),
+    fetch('/api/bill-reaction', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        billId: bill.billId,
+        bill: {
+          shortTitle: bill.shortTitle,
+          longTitle: bill.longTitle || '',
+          summary: bill.summary || '',
+          currentStage: bill.currentStage?.description || '',
+        },
+      }),
+    }).then((r) => r.json()),
+  ]);
+
+  const press = pressResult.status === 'fulfilled' ? (pressResult.value.articles || []) : [];
+  const reaction = reactionResult.status === 'fulfilled' && !reactionResult.value.error ? reactionResult.value : null;
+
+  if (!press.length && !reaction) return;
+
+  el.innerHTML = `
+    ${reaction ? `
+      <h2 class="section-title">Critics & supporters</h2>
+      <div class="reaction-grid">
+        <div class="reaction-col reaction-col--for">
+          <div class="reaction-col-label">Supporting</div>
+          ${(reaction.supporting || []).map((g) => `<div class="reaction-item">${escapeHtml(g)}</div>`).join('')}
+        </div>
+        <div class="reaction-col reaction-col--against">
+          <div class="reaction-col-label">Opposing</div>
+          ${(reaction.opposing || []).map((g) => `<div class="reaction-item">${escapeHtml(g)}</div>`).join('')}
+        </div>
+      </div>
+      ${reaction.debate ? `<p class="reaction-debate">"${escapeHtml(reaction.debate)}"</p>` : ''}
+    ` : ''}
+    ${press.length ? `
+      <h2 class="section-title">In the press</h2>
+      <div>
+        ${press.map((a) => `
+          <a class="press-item" href="${escapeHtml(a.url)}" target="_blank" rel="noopener">
+            <div class="press-item-source">${escapeHtml(a.source)}</div>
+            <div class="press-item-headline">${escapeHtml(a.headline)}</div>
+          </a>
+        `).join('')}
+      </div>
+    ` : ''}
+  `;
+}
+
+// ============================================================
+// MP STATEMENTS (TheyWorkForYou)
+// ============================================================
+const PARTY_COLORS_FE = {
+  'labour': '#E4003B', 'conservative': '#0087DC', 'liberal democrat': '#FAA61A',
+  'snp': '#FDF38E', 'green': '#6AB023', 'reform': '#12B6CF', 'plaid cymru': '#3F8428',
+  'dup': '#D46A4C', 'sinn féin': '#326760', 'alliance': '#F6CB2F',
+};
+function partyColorFe(party) {
+  const p = (party || '').toLowerCase();
+  for (const [k, v] of Object.entries(PARTY_COLORS_FE)) { if (p.includes(k)) return v; }
+  return '#888';
+}
+function looksFactual(text) {
+  return /\b(\d+%|\d+ (billion|million|thousand)|every \w+ (person|child|family)|cut(ting)? \d|reduc\w+ \d|increas\w+ \d)/i.test(text);
+}
+
+async function loadMpStatements(bill) {
+  const el = document.getElementById('mp-statements');
+  if (!el) return;
+  try {
+    const res = await fetch(`/api/mp-statements?title=${encodeURIComponent(bill.shortTitle)}`);
+    const data = await res.json();
+    const stmts = data.statements || [];
+    if (!stmts.length) return;
+    el.innerHTML = `
+      <h2 class="section-title">What they said in Parliament</h2>
+      <p class="mp-statements-note">These are their exact words from the official parliamentary record — on the public record and cannot be deleted.</p>
+      ${stmts.map((s) => {
+        const color = partyColorFe(s.party);
+        const meta = [s.party, s.constituency, s.date].filter(Boolean).join(' · ');
+        const factFlag = looksFactual(s.text)
+          ? `<span class="mp-fact-flag">⚠ Fact-check this claim</span>` : '';
+        return `<a class="mp-card" href="${escapeHtml(s.url)}" target="_blank" rel="noopener">
+          <div class="mp-card-header">
+            <span class="mp-party-dot" style="background:${color}"></span>
+            <span class="mp-card-name">${escapeHtml(s.name)}</span>
+            <span class="mp-card-meta">${escapeHtml(meta)}</span>
+          </div>
+          <div class="mp-card-text">"${escapeHtml(s.text)}"</div>
+          ${factFlag}
+        </a>`;
+      }).join('')}
+    `;
+  } catch {}
+}
+
+// ============================================================
+// PDF DOWNLOAD
+// ============================================================
+async function downloadPdf() {
+  const bill = state.detailBill;
+  if (!bill) return;
+  if (bill.isMock) {
+    toast('Demo bill — real PDF not available');
+    window.open('https://bills.parliament.uk/', '_blank');
+    return;
+  }
+  toast('Finding latest PDF...');
+  try {
+    const res = await fetch(`/api/bill-publications/${bill.billId}`);
+    if (!res.ok) throw new Error(`API ${res.status}`);
+    const data = await res.json();
+    const pubs = data.publications || data.items || [];
+    let pdfUrl = null;
+    const billPubs = pubs.filter(p => {
+      const type = (p.publicationType?.name || p.publicationTypeName || '').toLowerCase();
+      return type.includes('bill');
+    });
+    const pool = billPubs.length ? billPubs : pubs;
+    pool.sort((a, b) => new Date(b.displayDate || b.createdDate || 0) - new Date(a.displayDate || a.createdDate || 0));
+    for (const p of pool) {
+      const files = p.files || [];
+      const pdf = files.find(f => (f.contentType || '').toLowerCase().includes('pdf') || (f.filename || '').toLowerCase().endsWith('.pdf'));
+      if (pdf && p.id && pdf.id) {
+        pdfUrl = `https://bills-api.parliament.uk/api/v1/Publications/${p.id}/Documents/${pdf.id}/Download`;
+        break;
+      }
+    }
+    if (pdfUrl) {
+      window.open(pdfUrl, '_blank');
+    } else {
+      window.open(`https://bills.parliament.uk/bills/${bill.billId}/publications`, '_blank');
+    }
+  } catch {
+    window.open(`https://bills.parliament.uk/bills/${bill.billId}/publications`, '_blank');
+  }
+}
+
+function openPetitionsDrawer() {
+  const d = document.getElementById('petitions-drawer');
+  if (!d) return;
+  d.open = true;
+  d.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function handlePetitionsToggle(d) {
+  if (d.open && !d.dataset.loaded) {
+    d.dataset.loaded = '1';
+    findPetitions();
+  }
+}
+
+async function runAiSummary(bill, detail) {
+  const el = document.getElementById('ai-summary');
+  el.innerHTML = '<div class="loading">Reading the bill text and looking for what\'s between the lines — this can take 30–60s on first view.</div>';
+  // Send EVERY platform topic the bill matches (not just the user's subscribed ones).
+  // Keeps the server cache comprehensive and shared across all users.
+  const allMatched = allTopicsForBill(bill);
+  try {
+    const res = await fetch('/api/summary', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        billId: bill.billId,
+        bill: {
+          shortTitle: bill.shortTitle,
+          longTitle: detail.longTitle || bill.longTitle,
+          summary: detail.summary || bill.summary || '',
+          currentStage: detail.currentStage?.description || bill.currentStage?.description || '',
+          house: detail.originatingHouse || bill.originatingHouse || '',
+        },
+        topics: allMatched.map((t) => ({ id: t.id, label: t.label })),
+      }),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    renderAi(el, data, bill);
+  } catch (err) {
+    el.innerHTML = `<div class="ai-prompt"><h3>Couldn't generate summary</h3><p>${escapeHtml(err.message)}</p></div>`;
+  }
+}
+
+function renderAi(el, ai, bill) {
+  // Back-compat: pre-v5 schemas used "gist" or wove sources inline; plain escape is fine.
+  const summary = ai.summary || ai.gist || '';
+
+  // Filter affected_groups to topics the user has subscribed to.
+  // Server cache is comprehensive (one entry per topic the bill matches); client slices.
+  const subscribedTopicIds = new Set(state.topics.map((t) => t.id));
+  const groups = (ai.affected_groups || ai.who_might_be_affected || []).filter(
+    (g) => g.topic_id && subscribedTopicIds.has(g.topic_id)
+  );
+
+  const affectedHtml = groups.map((g) => {
+    const topic = TOPIC_BY_ID[g.topic_id];
+    if (!topic) return '';
+    const pillStyle = `background:${topic.color};color:white`;
+    const sources = Array.isArray(g.sources) ? g.sources : [];
+    const sourcesHtml = sources.length
+      ? `<div class="affected-sources">${sources.map((s) =>
+          `<a class="affected-source" href="${escapeHtml(s.url)}" target="_blank" rel="noopener">${escapeHtml(s.organisation || 'Source')}</a>`
+        ).join('')}</div>`
+      : '';
+    const stance = g.stance || 'neutral';
+    const stanceChip = stance && stance !== 'neutral'
+      ? `<span class="stance-chip stance-chip--${stance}"><span class="stance-dot"></span>${STANCE_LABELS[stance] || ''}</span>`
+      : '';
+    return `<details class="affected-group affected-group--${stance}">
+      <summary>
+        <span class="affected-pill" style="${pillStyle}">${escapeHtml(g.label || topic.label)}</span>
+        ${stanceChip}
+        <span class="affected-toggle">+</span>
+      </summary>
+      <div class="affected-body">
+        <p>${escapeHtml(g.impact || '')}</p>
+        ${sourcesHtml}
+      </div>
+    </details>`;
+  }).join('');
+
+  const limitedNote = ai.has_bill_text === false
+    ? `<div class="ai-limited" style="margin-bottom:10px">Full bill text isn't published yet — this is based on the title and official summary only.</div>`
+    : '';
+
+  // Counter: prefer server-generated field, fall back to first sentence of each negative/mixed group
+  const negGroups = groups.filter((g) => g.stance === 'negative' || g.stance === 'mixed');
+  const counterText = ai.counter_summary || negGroups
+    .map((g) => (g.impact || '').split(/(?<=\.)\s+/)[0].replace(/\.\s*$/, '').trim())
+    .filter(Boolean)
+    .join(' ');
+
+  el.innerHTML = `
+    ${summary ? `<div class="ai-section">
+      <h3 class="ai-section-title">What the government are saying</h3>
+      <div class="ai-gist"><p>${escapeHtml(summary)}</p></div>
+      ${limitedNote}
+    </div>` : ''}
+    ${counterText ? `<div class="ai-section">
+      <h3 class="ai-section-title">What the government are <em>not</em> saying</h3>
+      <div class="ai-gist"><p>${escapeHtml(counterText)}</p></div>
+    </div>` : ''}
+    ${affectedHtml ? `<div class="ai-harm"><h3>Impact on communities</h3><div class="affected-grid">${affectedHtml}</div></div>` : ''}
+  `;
+}
+
+function toggleWatch() {
+  const id = state.detailBill?.billId;
+  if (!id) return;
+  if (state.watched[id]) {
+    delete state.watched[id];
+    toast('Removed from favourites');
+  } else {
+    state.watched[id] = { title: state.detailBill.shortTitle };
+    state.lastSeenUpdates[id] = state.detailBill.lastUpdate;
+    toast('Added to favourites ♥');
+  }
+  save();
+  document.getElementById('fav-btn').classList.toggle('is-active', !!state.watched[id]);
+}
+
+function toggleFavFilter() {
+  state.currentFilter = state.currentFilter === 'favorites' ? 'all' : 'favorites';
+  const btn = document.getElementById('fav-filter-btn');
+  if (btn) btn.classList.toggle('is-active', state.currentFilter === 'favorites');
+  renderFeed();
+}
+
+function onBillSearch(val) {
+  state.searchQuery = val.trim();
+  const clearBtn = document.getElementById('bill-search-clear');
+  if (clearBtn) clearBtn.hidden = !state.searchQuery;
+  renderFeed();
+}
+
+function clearBillSearch() {
+  state.searchQuery = '';
+  const input = document.getElementById('bill-search');
+  if (input) input.value = '';
+  const clearBtn = document.getElementById('bill-search-clear');
+  if (clearBtn) clearBtn.hidden = true;
+  renderFeed();
+}
+
+function shareBill() {
+  const b = state.detailBill;
+  if (!b) return;
+  const url = `https://bills.parliament.uk/bills/${b.billId}`;
+  const text = `${b.shortTitle} — currently in UK Parliament. ${url}`;
+  if (navigator.share) {
+    navigator.share({ title: b.shortTitle, text: b.shortTitle, url }).catch(() => {});
+  } else {
+    navigator.clipboard.writeText(text).then(() => toast('Link copied'));
+  }
+}
+
+async function findPetitions() {
+  const el = document.getElementById('petitions');
+  el.innerHTML = '<div class="loading">Searching petitions...</div>';
+  const queries = [];
+  state.detailBill.topics.forEach(t => queries.push(t.keywords[0]));
+  const firstWord = (state.detailBill.shortTitle || '').split(' ')[0].toLowerCase();
+  if (firstWord && firstWord.length > 3) queries.unshift(firstWord);
+  const q = queries[0] || state.detailBill.topics[0]?.label || '';
+  try {
+    const res = await fetch(`/api/petitions?state=open&search=${encodeURIComponent(q)}`);
+    const data = await res.json();
+    const items = (data.data || []).slice(0, 6);
+    if (items.length === 0) {
+      el.innerHTML = `<p style="color: var(--muted); font-size: 0.9rem;">No open petitions match "${escapeHtml(q)}" right now.</p>`;
+      return;
+    }
+    el.innerHTML = `
+      <div class="petitions">
+        ${items.map(p => {
+          const href = (p.links?.self || '').replace('.json','');
+          const count = (p.attributes?.signature_count || 0).toLocaleString();
+          return `<a class="petition" href="${href}" target="_blank" rel="noopener">
+            <div class="petition-title">${escapeHtml(p.attributes?.action || '')}</div>
+            <div class="petition-meta">${count} signatures · tap to sign</div>
+          </a>`;
+        }).join('')}
+      </div>
+    `;
+  } catch (err) {
+    el.innerHTML = `<div class="empty"><p>Couldn't fetch petitions: ${escapeHtml(err.message)}</p></div>`;
+  }
+}
+
+// ============================================================
+// SETTINGS
+// ============================================================
+function renderSettings() {
+  renderTopicPicker('settings-topics', 'settings-search', () => {
+    if (state.currentFilter !== 'all' && !state.topics.find((t) => t.id === state.currentFilter)) {
+      state.currentFilter = 'all';
+    }
+    matchBillsToTopics();
+  });
+  document.getElementById('notif-toggle').checked = !!state.notifEnabled;
+  document.getElementById('postcode-input').value = state.postcode || '';
+  document.getElementById('email-input').value = state.email || '';
+  const freqRadios = document.querySelectorAll('#email-freq input[name="freq"]');
+  freqRadios.forEach((r) => { r.checked = r.value === (state.emailFrequency || 'updates'); });
+  renderMpCard();
+}
+
+function renderMpCard() {
+  const el = document.getElementById('mp-card');
+  if (!el) return;
+  if (!state.mp) { el.innerHTML = ''; return; }
+  const { name, party, partyColor, thumbnailUrl } = state.mp;
+  el.innerHTML = `
+    <div class="mp-card" style="--mp-color:${partyColor || 'var(--ink)'}">
+      ${thumbnailUrl ? `<img src="${escapeHtml(thumbnailUrl)}" alt="" onerror="this.style.display='none'">` : '<div style="width:48px;height:48px;border-radius:50%;background:var(--chip);flex-shrink:0;"></div>'}
+      <div class="mp-card-body">
+        <div class="mp-card-name">${escapeHtml(name)}</div>
+        <div class="mp-card-meta">${escapeHtml(party || '')} · ${escapeHtml(state.postcode || '')}</div>
+      </div>
+      <button class="mp-card-clear" onclick="clearMp()">Change</button>
+    </div>
+  `;
+}
+
+async function lookupMp() {
+  const raw = (document.getElementById('postcode-input').value || '').trim().replace(/\s+/g, '').toUpperCase();
+  if (!raw) return toast('Enter a postcode');
+  toast('Finding your MP...');
+  try {
+    const res = await fetch(`/api/mp?postcode=${encodeURIComponent(raw)}`);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    state.postcode = data.postcode;
+    state.mp = { ...data.mp, constituency: data.constituency };
+    save();
+    renderMpCard();
+    toast(`Found ${data.mp.name}`);
+  } catch (err) {
+    toast('Couldn\'t find an MP for that postcode');
+  }
+}
+
+function clearMp() {
+  state.postcode = '';
+  state.mp = null;
+  save();
+  renderMpCard();
+  document.getElementById('postcode-input').value = '';
+}
+
+async function saveSubscription() {
+  const email = (document.getElementById('email-input').value || '').trim();
+  const freq = document.querySelector('#email-freq input[name="freq"]:checked')?.value || 'updates';
+  if (!email) return toast('Enter your email');
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return toast('Invalid email');
+  state.email = email;
+  state.emailFrequency = freq;
+  save();
+  try {
+    const res = await fetch('/api/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email,
+        frequency: freq,
+        topics: state.topics.map((t) => t.id),
+        mp: state.mp ? { id: state.mp.id, name: state.mp.name } : null,
+        postcode: state.postcode || null,
+      }),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    toast('Preferences saved');
+  } catch (err) {
+    toast('Saved locally — sync failed');
+  }
+}
+
+function openSupport() {
+  document.getElementById('support-modal').hidden = false;
+}
+function closeSupport() {
+  document.getElementById('support-modal').hidden = true;
+}
+
+// ============================================================
+// EMAIL YOUR MP
+// ============================================================
+let currentStance = null;
+
+function openMpEmail() {
+  if (!state.mp) {
+    toast("Add your postcode in settings first");
+    showSettings();
+    return;
+  }
+  document.getElementById('mp-email-mp-name').textContent = `Write to ${state.mp.name}`;
+  document.getElementById('mp-email-sub').textContent = `${state.mp.party || ''}${state.mp.constituency ? ' · ' + state.mp.constituency : ''}. Pick a stance — we'll draft it. You can edit before sending.`;
+  document.getElementById('mp-email-draft').hidden = true;
+  document.querySelectorAll('.stance-btn').forEach((b) => b.classList.remove('is-active'));
+  currentStance = null;
+  document.getElementById('mp-email-modal').hidden = false;
+}
+
+function closeMpEmail() {
+  document.getElementById('mp-email-modal').hidden = true;
+}
+
+function pickStance(stance) {
+  currentStance = stance;
+  document.querySelectorAll('.stance-btn').forEach((b) => {
+    b.classList.toggle('is-active', b.dataset.stance === stance);
+  });
+  const bill = state.detailBill;
+  const mp = state.mp;
+  const constituency = mp.constituency || '';
+  const gistEl = document.querySelector('#ai-summary .ai-gist p');
+  const gist = (gistEl?.textContent || '').trim();
+  const stageLabel = state.detailData?.currentStage?.description || bill.currentStage?.description || '';
+  const verb = stance === 'support' ? 'support' : 'oppose';
+  const stanceOpen = stance === 'support'
+    ? 'I strongly support this legislation and want to register my backing for it.'
+    : 'I must respectfully register my opposition to this bill.';
+  const urge = stance === 'support'
+    ? 'I urge you to vote in favour when it next comes before the House.'
+    : 'I urge you to vote against when it next comes before the House.';
+  const subject = `${bill.shortTitle} — ${stance === 'support' ? 'please support' : 'my concerns'}`;
+  const body = `Dear ${mp.name},
+
+As your constituent${constituency ? ' in ' + constituency : ''}, I'm writing to you regarding the ${bill.shortTitle} currently ${stageLabel ? 'at ' + stageLabel : 'before Parliament'}.
+
+${stanceOpen}
+${gist ? '\n' + gist + '\n' : ''}
+${urge}
+
+I would welcome hearing your position on this bill and how you intend to vote. Your view on this matters to me as a constituent.
+
+Yours sincerely,
+[Your name]`;
+  document.getElementById('mp-email-subject').value = subject;
+  document.getElementById('mp-email-body').value = body;
+  document.getElementById('mp-email-draft').hidden = false;
+}
+
+async function openMailto() {
+  let mpEmail = '';
+  try {
+    const res = await fetch(`/api/mp-contact/${state.mp.id}`);
+    const data = await res.json();
+    const items = data.value || [];
+    const emailItem = items.find((c) => (c.line1 || '').includes('@') || (c.email || '').includes('@'));
+    mpEmail = emailItem?.email || emailItem?.line1 || '';
+  } catch {}
+  const subj = encodeURIComponent(document.getElementById('mp-email-subject').value);
+  const body = encodeURIComponent(document.getElementById('mp-email-body').value);
+  window.location.href = `mailto:${encodeURIComponent(mpEmail)}?subject=${subj}&body=${body}`;
+}
+
+function copyEmail() {
+  const subj = document.getElementById('mp-email-subject').value;
+  const body = document.getElementById('mp-email-body').value;
+  navigator.clipboard.writeText(`Subject: ${subj}\n\n${body}`).then(() => toast('Copied'));
+}
+
+// Compare MP name against bill sponsor — tolerant to titles and formatting.
+function isByMyMp(bill) {
+  if (!state.mp) return false;
+  const mpName = (state.mp.name || '').toLowerCase().replace(/\b(mr|mrs|ms|dr|sir|dame|rt hon|mp)\b\.?/g, '').trim();
+  if (!mpName) return false;
+  const sponsors = bill.sponsors || [];
+  return sponsors.some((s) => {
+    const sn = (s.member?.name || s.organisation?.name || '').toLowerCase();
+    return sn.includes(mpName) || mpName.split(' ').every((w) => w.length < 3 || sn.includes(w));
+  });
+}
+
+function resetAll() {
+  if (!confirm('Reset all topics, watched bills, and cached summaries? Your API key will also be cleared.')) return;
+  localStorage.removeItem('ukbt:state');
+  location.reload();
+}
+
+document.addEventListener('change', (e) => {
+  if (e.target.id === 'notif-toggle') {
+    state.notifEnabled = e.target.checked;
+    if (e.target.checked && 'Notification' in window) {
+      Notification.requestPermission();
+    }
+    save();
+  }
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') { closeSupport(); closeMpEmail(); }
+});
+
+// ============================================================
+// PULSE (news)
+// ============================================================
+const newsState = { articles: [], loading: false, cachedAt: null, currentIdx: 0 };
+
+function setFeedView(view) {
+  state.feedView = view;
+  const billsView = document.getElementById('bills-view');
+  const pollsView = document.getElementById('polls-view');
+  const pulseView = document.getElementById('pulse-view');
+  const tabBills  = document.getElementById('tab-bills');
+  const tabPolls  = document.getElementById('tab-polls');
+  const tabPulse  = document.getElementById('tab-pulse');
+  const searchWrap = document.querySelector('.feed-search-wrap');
+  if (!billsView) return;
+  billsView.hidden = (view !== 'bills');
+  if (pollsView) pollsView.hidden = (view !== 'polls');
+  if (pulseView) pulseView.hidden = (view !== 'pulse');
+  if (tabBills) tabBills.classList.toggle('is-active', view === 'bills');
+  if (tabPolls) tabPolls.classList.toggle('is-active', view === 'polls');
+  if (tabPulse) tabPulse.classList.toggle('is-active', view === 'pulse');
+  if (searchWrap) searchWrap.hidden = (view !== 'bills');
+  if (view === 'pulse') loadPulse();
+  if (view === 'polls') loadPolls();
+}
+
+const POLL_PARTY_COLORS = {
+  'labour': '#E4003B',
+  'conservative': '#0087DC',
+  'reform': '#12B6CF',
+  'liberal democrat': '#FAA61A',
+  'lib dem': '#FAA61A',
+  'green': '#6AB023',
+  'snp': '#FDF38E',
+  'plaid': '#005B54',
+};
+function pollPartyColor(name) {
+  const n = (name || '').toLowerCase();
+  for (const [k, v] of Object.entries(POLL_PARTY_COLORS)) {
+    if (n.includes(k)) return v;
+  }
+  return '#6B6B6B';
+}
+
+let pollsData = null;
+let topicPollsData = null;
+let pollsLoading = false;
+
+function mpPartyMatch(partyName) {
+  if (!state.mp?.party || !partyName) return false;
+  const mine = state.mp.party.toLowerCase();
+  const other = partyName.toLowerCase();
+  const keyword = mine.split(' ').find((w) => w.length > 3 && !['party', 'the', 'and'].includes(w));
+  return keyword ? other.includes(keyword) : mine === other;
+}
+
+async function loadPolls(force) {
+  if (pollsLoading) return;
+  const el = document.getElementById('polls-content');
+  if (!el) return;
+  if (!force && pollsData) { renderPolls(pollsData); return; }
+  pollsLoading = true;
+  el.innerHTML = '<div class="loading">Fetching latest polls…</div>';
+  try {
+    const pollsRes = await fetch('/api/polls');
+    if (!pollsRes.ok) throw new Error(`Server error ${pollsRes.status}`);
+    pollsData = await pollsRes.json();
+    if (pollsData.error) throw new Error(pollsData.error);
+    renderPolls(pollsData);
+  } catch (err) {
+    el.innerHTML = `<div class="empty"><h3>Couldn't load polls</h3><p>${escapeHtml(err.message)}</p></div>`;
+  } finally {
+    pollsLoading = false;
+  }
+}
+
+const PARTIES = [
+  {
+    id: 'labour', name: 'Labour', color: '#E4003B',
+    website: 'https://labour.org.uk',
+    manifesto: 'https://labour.org.uk/change/',
+    values: 'Social justice, a strong NHS and public services, workers\' rights, and reducing inequality. Believes in an active state that invests in people and communities.',
+    size: { members: '430,000+', seats: '412 MPs', founded: '1900' },
+    demographics: 'Traditionally working-class, now also middle-class professionals. Strongest in cities, Wales, and northern England. Draws more support from younger voters and ethnic minority communities.',
+    leader: { name: 'Keir Starmer', role: 'Prime Minister', background: 'Barrister and former Director of Public Prosecutions (2008–2013). Led Labour to a landslide victory in the 2024 general election, ending 14 years of Conservative government.', income: '£195,000/year (Prime Minister\'s salary)', netWorth: 'est. £4–5 million (built through career as a barrister)', lean: 'Centre-left' },
+  },
+  {
+    id: 'conservative', name: 'Conservative', color: '#0087DC',
+    website: 'https://www.conservatives.com',
+    manifesto: 'https://www.conservatives.com/our-plan',
+    values: 'Free markets, lower taxes, personal responsibility, strong defence, and traditional institutions. Believes in a smaller state and protection of individual freedoms through economic means.',
+    size: { members: '172,000', seats: '121 MPs', founded: '1834' },
+    demographics: 'Historically older, wealthier, home-owning voters in rural and suburban England. Suffered catastrophic losses with younger and urban voters in 2024.',
+    leader: { name: 'Kemi Badenoch', role: 'Leader of the Opposition', background: 'Former software developer and cabinet minister under Rishi Sunak. Born in London to Nigerian parents, grew up partly in the US and Nigeria. Elected Conservative leader November 2024.', income: '~£86,584/year (MP\'s salary)', netWorth: 'est. £1–2 million', lean: 'Right' },
+  },
+  {
+    id: 'reform', name: 'Reform UK', color: '#12B6CF',
+    website: 'https://www.reformuk.com',
+    manifesto: 'https://www.reformuk.com/our-contract/',
+    values: 'Strict immigration controls, scrapping net zero targets, cutting public spending, and opposing what they call "woke" culture. Positions itself as the anti-establishment alternative.',
+    size: { members: '200,000+', seats: '5 MPs', founded: '2018' },
+    demographics: 'Predominantly older, white, Leave-voting, working and lower-middle class. Draws heavily from former Conservative voters and those who feel abandoned by mainstream politics.',
+    leader: { name: 'Nigel Farage', role: 'Party Leader & MP for Clacton', background: 'Former commodities broker and MEP. Co-founded UKIP and the Brexit Party. A key architect of the UK\'s EU referendum and Brexit. Elected to Parliament for the first time in July 2024.', income: '~£86,584/year (MP\'s salary) plus significant media and speaking income', netWorth: 'est. £4–5 million', lean: 'Right-wing populist' },
+  },
+  {
+    id: 'libdem', name: 'Liberal Democrats', color: '#FAA61A',
+    website: 'https://www.libdems.org.uk',
+    manifesto: 'https://www.libdems.org.uk/our-manifesto',
+    values: 'Civil liberties, proportional representation, pro-European cooperation, mental health investment, and climate action. Champions individual rights and constitutional reform.',
+    size: { members: '150,000+', seats: '72 MPs', founded: '1988' },
+    demographics: 'University-educated professionals, Remain voters, and tactical anti-Conservative voters across south-west England and London suburbs. Broadly middle-class.',
+    leader: { name: 'Ed Davey', role: 'Party Leader', background: 'Former Secretary of State for Energy and Climate Change (2012–2015). Led the Lib Dems to their best result in over a century in 2024 by targeting Tory-held seats with a disciplined tactical campaign.', income: '~£86,584/year (MP\'s salary)', netWorth: 'est. £1–2 million', lean: 'Centre-left' },
+  },
+  {
+    id: 'green', name: 'Green Party', color: '#6AB023',
+    website: 'https://www.greenparty.org.uk',
+    manifesto: 'https://www.greenparty.org.uk/green-guarantee/',
+    values: 'Urgent climate action, social justice, universal basic income, full LGBTQ+ and trans equality, animal rights, and anti-austerity public investment. The most explicitly pro-trans rights major party.',
+    size: { members: '50,000+', seats: '4 MPs', founded: '1990' },
+    demographics: 'Young, urban, highly educated, and strongly progressive. Significant support in university cities like Brighton and Bristol. A leading voice for LGBTQ+ communities.',
+    leader: { name: 'Zack Polanski', role: 'Party Leader', background: 'London Assembly Member since 2021 and former actor. Known for outspoken progressive politics and strong advocacy for trans rights, housing justice, and social equality.', income: '~£60,000/year (GLA Assembly Member salary)', netWorth: 'Not publicly disclosed', lean: 'Left' },
+  },
+];
+
+function toggleParty(btn) {
+  const card = btn.closest('.party-card');
+  if (card.hasAttribute('data-open')) card.removeAttribute('data-open');
+  else card.setAttribute('data-open', '');
+}
+
+function renderPolls(d) {
+  const el = document.getElementById('polls-content');
+  if (!el) return;
+
+  const maxVi = Math.max(...(d.voting_intention || []).map((p) => p.pct), 1);
+
+  const viRows = (d.voting_intention || []).map((p) => {
+    const color = pollPartyColor(p.party);
+    const bar = Math.round((p.pct / maxVi) * 100);
+    const isMyParty = mpPartyMatch(p.party);
+    const chg = p.change != null
+      ? p.change > 0 ? `<span class="poll-bar-chg poll-chg-up">▲${p.change}</span>`
+      : p.change < 0 ? `<span class="poll-bar-chg poll-chg-dn">▼${Math.abs(p.change)}</span>`
+      : `<span class="poll-bar-chg poll-chg-nc">–</span>` : '';
+    return `<div class="poll-bar-row">
+      <span class="poll-bar-party">${escapeHtml(p.party)}${isMyParty ? '<span class="mp-marker">Your MP</span>' : ''}</span>
+      <div class="poll-bar-track"><div class="poll-bar-fill" style="width:${bar}%;background:${color}"></div></div>
+      <span class="poll-bar-pct">${p.pct}%</span>
+      ${chg}
+    </div>`;
+  }).join('');
+
+  const partyCards = PARTIES.map((p) => {
+    const leanColor = /left/i.test(p.leader.lean) ? 'var(--ok)' : /right/i.test(p.leader.lean) ? 'var(--hot)' : 'var(--muted)';
+    return `<div class="party-card" id="party-${p.id}">
+      <button class="party-card-header" onclick="toggleParty(this)">
+        <div class="party-color-bar" style="background:${p.color}"></div>
+        <div class="party-name-wrap">
+          <div class="party-card-name">${escapeHtml(p.name)}</div>
+          <div class="party-card-meta">${escapeHtml(p.leader.name)} &middot; <span style="color:${leanColor}">${escapeHtml(p.leader.lean)}</span></div>
+        </div>
+        <span class="party-chevron">▾</span>
+      </button>
+      <div class="party-card-body">
+        <div class="party-section">
+          <p class="party-section-label">Core values</p>
+          <p class="party-section-text">${escapeHtml(p.values)}</p>
+        </div>
+        <div class="party-section">
+          <p class="party-section-label">Key facts</p>
+          <div class="party-facts">
+            <span class="party-fact">${escapeHtml(p.size.seats)}</span>
+            <span class="party-fact">${escapeHtml(p.size.members)} members</span>
+            <span class="party-fact">Est. ${escapeHtml(p.size.founded)}</span>
+          </div>
+        </div>
+        <div class="party-section">
+          <p class="party-section-label">Who votes for them</p>
+          <p class="party-section-text">${escapeHtml(p.demographics)}</p>
+        </div>
+        <div class="party-section">
+          <p class="party-section-label">Leader · ${escapeHtml(p.leader.name)}</p>
+          <p class="party-section-text">${escapeHtml(p.leader.background)}</p>
+          <div class="party-leader-stats">
+            <div class="party-leader-stat">
+              <span class="party-leader-stat-label">Income</span>
+              <span class="party-leader-stat-value">${escapeHtml(p.leader.income)}</span>
+            </div>
+            <div class="party-leader-stat">
+              <span class="party-leader-stat-label">Net worth</span>
+              <span class="party-leader-stat-value">${escapeHtml(p.leader.netWorth)}</span>
+            </div>
+            <div class="party-leader-stat">
+              <span class="party-leader-stat-label">Political lean</span>
+              <span class="party-leader-stat-value" style="color:${leanColor}">${escapeHtml(p.leader.lean)}</span>
+            </div>
+          </div>
+        </div>
+        <div class="party-links">
+          <a href="${escapeHtml(p.website)}" target="_blank" rel="noopener" class="party-link">Website →</a>
+          <a href="${escapeHtml(p.manifesto)}" target="_blank" rel="noopener" class="party-link">Manifesto →</a>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  const ELECTION_DATE = new Date('2029-08-28');
+  const now = new Date(); now.setHours(0,0,0,0); ELECTION_DATE.setHours(0,0,0,0);
+  const daysLeft = Math.max(0, Math.ceil((ELECTION_DATE - now) / 86400000));
+
+  el.innerHTML = `
+    <div class="election-countdown">
+      <div class="election-row">
+        <span class="election-label">Next General Election</span>
+        <span class="election-count">${daysLeft.toLocaleString()}<span>days</span></span>
+      </div>
+      <p class="election-note">Must be held by 28 Aug 2029</p>
+    </div>
+
+    <div class="poll-card">
+      <p class="poll-eyebrow">Voting Intention</p>
+      <p class="poll-vi-sub">If a general election was announced now, how would the country vote?</p>
+      ${viRows}
+      ${d.source_url ? `<p class="poll-source">Source: <a href="${escapeHtml(d.source_url)}" target="_blank" rel="noopener">Wikipedia</a> · Opinium, ${escapeHtml(d.field_dates || '')}${d.vi_sample_size ? ` · n=${d.vi_sample_size.toLocaleString()}` : ''}</p>` : ''}
+    </div>
+    <h2 class="kyp-heading">Know your party</h2>
+    ${partyCards}
+  `;
+}
+
+const PULSE_PLACEHOLDERS = [
+  '/images/Image_Placholder_01.png',
+  '/images/Image_Placholder_02.png',
+  '/images/Image_Placholder_03.png',
+  '/images/Image_Placholder_04.png',
+  '/images/Image_Placholder_05.png',
+  '/images/Image_Placholder_06.png',
+];
+function pulsePlaceholder(url) {
+  let h = 0;
+  for (let i = 0; i < (url || '').length; i++) h = (h * 31 + (url || '').charCodeAt(i)) >>> 0;
+  return PULSE_PLACEHOLDERS[h % PULSE_PLACEHOLDERS.length];
+}
+
+const SOURCE_COLORS = {
+  'The Guardian':      '#005689',
+  'Politics Home':     '#003087',
+  'Novara Media':      '#E8000B',
+  'Byline Times':      '#CC3300',
+  'New Statesman':     '#C8102E',
+  'Declassified UK':   '#555555',
+  'Tribune':           '#CC0000',
+  'The Canary':        '#5C9E31',
+  'Left Foot Forward': '#E40028',
+  'openDemocracy':     '#0066CC',
+};
+
+const pulseState = { articles: [], loading: false };
+
+function getPulseRead()      { try { return new Set(JSON.parse(localStorage.getItem('pulse_read')      || '[]')); } catch { return new Set(); } }
+function getPulseDismissed() { try { return new Set(JSON.parse(localStorage.getItem('pulse_dismissed') || '[]')); } catch { return new Set(); } }
+function markPulseRead(url)  { const s = getPulseRead(); s.add(url); localStorage.setItem('pulse_read', JSON.stringify([...s])); }
+function markPulseDismissed(url) { const s = getPulseDismissed(); s.add(url); localStorage.setItem('pulse_dismissed', JSON.stringify([...s])); }
+
+async function loadPulse(force) {
+  if (pulseState.loading) return;
+  const feedEl = document.getElementById('pulse-feed');
+  if (!feedEl) return;
+  if (!force && pulseState.articles.length > 0) { renderPulse(); return; }
+  pulseState.loading = true;
+  feedEl.innerHTML = '<div class="loading">Loading…</div>';
+  try {
+    const res = await fetch('/api/pulse');
+    if (!res.ok) throw new Error(`Server error ${res.status}`);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    pulseState.articles = data.articles || [];
+    renderPulse();
+  } catch (err) {
+    feedEl.innerHTML = `<div class="empty"><h3>Couldn't load articles</h3><p>${escapeHtml(err.message)}</p></div>`;
+  } finally {
+    pulseState.loading = false;
+  }
+}
+
+function showNews() {
+  showScreen('feed');
+  setFeedView('pulse');
+}
+
+function renderPulse() {
+  const feedEl = document.getElementById('pulse-feed');
+  if (!feedEl) return;
+  const dismissed = getPulseDismissed();
+  const visible = pulseState.articles.filter(a => !dismissed.has(a.url));
+  if (visible.length === 0) {
+    feedEl.innerHTML = '<div class="empty"><h3>Nothing new right now</h3><p>Pull down to refresh.</p></div>';
+    return;
+  }
+  const read = getPulseRead();
+  feedEl.innerHTML = visible.map((a, i) => renderPulseCard(a, i, read.has(a.url))).join('');
+  initPulseSwipe(feedEl);
+}
+
+function renderPulseCard(a, idx, isRead) {
+  const dotColor = SOURCE_COLORS[a.source] || '#888888';
+  const fallback = pulsePlaceholder(a.url);
+  const imgSrc = a.image_url || fallback;
+  return `<a class="pulse-card${isRead ? ' is-read' : ''}" data-idx="${idx}" data-url="${escapeHtml(a.url || '')}"
+      href="${escapeHtml(a.url || '#')}" target="_blank" rel="noopener"
+      onclick="openPulseArticle(event,${idx})">
+    <div class="pulse-card-body">
+      <div class="pulse-eyebrow">
+        <span class="pulse-source-dot" style="background:${dotColor}"></span>
+        <span>${escapeHtml(a.source || '')}</span>
+        ${a.published_approx ? `<span class="pulse-time">${escapeHtml(a.published_approx)}</span>` : ''}
+      </div>
+      <div class="pulse-headline">${escapeHtml(a.headline || '')}</div>
+      ${a.summary ? `<div class="pulse-snippet">${escapeHtml(a.summary)}</div>` : ''}
+    </div>
+    <img class="pulse-thumb" src="${escapeHtml(imgSrc)}" alt="" loading="lazy"
+         onerror="this.onerror=null;this.src='${fallback}'" />
+  </a>`;
+}
+
+let pulseSwipeMoved = false;
+
+function initPulseSwipe(feed) {
+  let startX, startY, card, moved;
+  feed.addEventListener('touchstart', e => {
+    card = e.target.closest('.pulse-card');
+    if (!card) return;
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+    moved = false;
+  }, { passive: true });
+
+  feed.addEventListener('touchmove', e => {
+    if (!card) return;
+    const dx = e.touches[0].clientX - startX;
+    const dy = e.touches[0].clientY - startY;
+    if (!moved && Math.abs(dy) > Math.abs(dx)) { card = null; return; }
+    if (dx >= 0) return;
+    moved = true;
+    pulseSwipeMoved = true;
+    card.classList.add('is-swiping');
+    card.style.transform = `translateX(${dx}px)`;
+    card.style.opacity = String(Math.max(0, 1 + dx / 180));
+  }, { passive: true });
+
+  feed.addEventListener('touchend', () => {
+    if (!card) return;
+    const c = card; card = null;
+    const tx = parseFloat(c.style.transform.replace('translateX(', '')) || 0;
+    c.classList.remove('is-swiping');
+    if (tx < -80) {
+      const url = c.dataset.url;
+      if (url) markPulseDismissed(url);
+      c.style.transition = 'transform 0.22s ease, opacity 0.22s ease, max-height 0.28s ease 0.18s, padding 0.28s ease 0.18s, margin 0.28s ease 0.18s, border-width 0.28s ease 0.18s';
+      c.style.transform = 'translateX(-110%)';
+      c.style.opacity = '0';
+      setTimeout(() => {
+        c.style.maxHeight = '0'; c.style.padding = '0';
+        c.style.marginBottom = '0'; c.style.borderWidth = '0';
+      }, 200);
+      setTimeout(() => c.remove(), 480);
+    } else {
+      c.style.transition = 'transform 0.2s ease, opacity 0.2s ease';
+      c.style.transform = ''; c.style.opacity = '';
+      setTimeout(() => { c.style.transition = ''; pulseSwipeMoved = false; }, 220);
+    }
+  });
+}
+
+function openPulseArticle(event, idx) {
+  event.preventDefault();
+  if (pulseSwipeMoved) { pulseSwipeMoved = false; return; }
+  const dismissed = getPulseDismissed();
+  const visible = pulseState.articles.filter(a => !dismissed.has(a.url));
+  const a = visible[idx];
+  if (!a) return;
+
+  // Mark read + update card visually
+  markPulseRead(a.url);
+  const card = document.querySelector(`.pulse-card[data-idx="${idx}"]`);
+  if (card) card.classList.add('is-read');
+
+  showScreen('news-detail');
+  window.scrollTo(0, 0);
+  const el = document.getElementById('news-detail');
+  if (!el) return;
+  const dotColor = SOURCE_COLORS[a.source] || '#888';
+  const bodyHtml = (a.body || a.summary || '')
+    .split(/\n\n+/).filter(Boolean)
+    .map(p => `<p>${escapeHtml(p.trim())}</p>`).join('');
+  el.innerHTML = `
+    <div class="news-detail-hero"><img src="${escapeHtml(a.image_url || pulsePlaceholder(a.url))}" alt="" onerror="this.onerror=null;this.src='${pulsePlaceholder(a.url)}'" /></div>
+    <div class="news-detail-eyebrow">
+      <span class="pulse-source-dot" style="background:${dotColor};width:8px;height:8px;display:inline-block;border-radius:50%;flex-shrink:0"></span>
+      <span class="news-source-name">${escapeHtml(a.source || '')}</span>
+      ${a.published_approx ? `<span class="news-time">${escapeHtml(a.published_approx)}</span>` : ''}
+    </div>
+    <h1 class="news-detail-title">${escapeHtml(a.headline || '')}</h1>
+    ${a.author ? `<div class="news-author">By ${escapeHtml(a.author)}</div>` : ''}
+    <div class="news-detail-body">${bodyHtml}</div>
+    <div class="news-detail-cta">
+      <a class="btn-primary" href="${escapeHtml(a.url || '#')}" target="_blank" rel="noopener noreferrer">Read full article at ${escapeHtml(a.source || 'source')} →</a>
+    </div>
+  `;
+}
+
+function renderNews() {}
+function renderNewsCard(a, idx) { return ''; }
+
+function renderParliamentWeek() {
+  const feedEl = document.getElementById('news-feed');
+  if (!feedEl) return;
+
+  const now = Date.now();
+  const TWO_WEEKS = 14 * 24 * 60 * 60 * 1000;
+  const recent = state.matchedBills
+    .filter((b) => b.lastUpdate && (now - new Date(b.lastUpdate).getTime()) < TWO_WEEKS)
+    .sort((a, b) => new Date(b.lastUpdate) - new Date(a.lastUpdate));
+
+  if (recent.length === 0) {
+    feedEl.innerHTML = '<div class="empty"><h3>Nothing moving yet</h3><p>Bills in your topics that have had parliamentary activity in the last two weeks will appear here.</p></div>';
+    return;
+  }
+
+  // Group by day bucket
+  const buckets = {};
+  recent.forEach((bill) => {
+    const daysAgo = Math.floor((now - new Date(bill.lastUpdate).getTime()) / 86400000);
+    const key = daysAgo === 0 ? 'Today' : daysAgo === 1 ? 'Yesterday' : daysAgo <= 6 ? `${daysAgo} days ago` : 'Last week';
+    if (!buckets[key]) buckets[key] = [];
+    buckets[key].push(bill);
+  });
+
+  const ORDER = ['Today', 'Yesterday', '2 days ago', '3 days ago', '4 days ago', '5 days ago', '6 days ago', 'Last week'];
+  const html = ORDER.filter((k) => buckets[k]).map((key) => `
+    <div class="pw-day-group">
+      <div class="pw-day-label">${key}</div>
+      ${buckets[key].map(renderParliamentCard).join('')}
+    </div>
+  `).join('');
+
+  feedEl.innerHTML = `<p class="pw-intro">Bills in your topics — what's moved through Parliament recently.</p>${html}`;
+}
+
+function renderParliamentCard(bill) {
+  const stage = bill.currentStage?.description || '';
+  const house = bill.currentHouse || bill.originatingHouse || '';
+  const stageLine = [stage, house].filter(Boolean).join(' · ');
+  const summary = state.summariesIndex[bill.billId]?.tile_summary || '';
+  return `<div class="pw-card" onclick="openBill(${bill.billId})">
+    ${stageLine ? `<div class="pw-stage-pill">${escapeHtml(stageLine)}</div>` : ''}
+    <div class="pw-card-title">${escapeHtml(bill.shortTitle)}</div>
+    ${summary ? `<div class="pw-card-summary">${escapeHtml(summary)}</div>` : ''}
+  </div>`;
+}
+
+function openNewsArticle(idx) {
+  const a = newsState.articles[idx];
+  if (!a) return;
+  newsState.currentIdx = idx;
+  showScreen('news-detail');
+  window.scrollTo(0, 0);
+  const el = document.getElementById('news-detail');
+  if (!el) return;
+  const topic = TOPIC_BY_ID[a.topic_id];
+  const color = topic ? topic.color : '#888888';
+  const label = topic ? topic.label : (a.topic_id || '');
+  const bodyHtml = (a.body || a.summary || '')
+    .split(/\n\n+/)
+    .filter(Boolean)
+    .map(p => `<p>${escapeHtml(p.trim())}</p>`)
+    .join('');
+  const recommended = newsState.articles
+    .map((x, i) => ({ x, i }))
+    .filter(({ i }) => i !== idx)
+    .slice(0, 3);
+  el.innerHTML = `
+    <div class="news-detail-hero"><img src="${escapeHtml(a.image_url || pulsePlaceholder(a.url))}" alt="" onerror="this.onerror=null;this.src='${pulsePlaceholder(a.url)}'" /></div>
+    <div class="news-detail-eyebrow">
+      ${label ? `<span class="news-topic-chip" style="background:${color}22;color:${color};border:1px solid ${color}44">${escapeHtml(label)}</span>` : ''}
+      <span class="news-source-name">${escapeHtml(a.source || '')}</span>
+      ${a.published_approx ? `<span class="news-time">${escapeHtml(a.published_approx)}</span>` : ''}
+    </div>
+    <h1 class="news-detail-title">${escapeHtml(a.headline || '')}</h1>
+    ${a.author ? `<div class="news-author">By ${escapeHtml(a.author)}</div>` : ''}
+    <div class="news-detail-body">${bodyHtml}</div>
+    <div class="news-detail-cta">
+      <a class="btn-primary" href="${escapeHtml(a.url || '#')}" target="_blank" rel="noopener noreferrer">Read full article at ${escapeHtml(a.source || 'source')} →</a>
+    </div>
+    ${recommended.length ? `
+      <div class="news-recommended">
+        <h3>More articles</h3>
+        <div class="news-feed">${recommended.map(({ x, i }) => renderNewsCard(x, i)).join('')}</div>
+      </div>` : ''}
+  `;
+}
+
+// ============================================================
+// BOOT
+// ============================================================
+function boot() {
+  load();
+  initPullToRefresh();
+  // Inject heart SVG into fav buttons
+  document.querySelectorAll('#fav-btn, #fav-filter-btn').forEach(b => { if (b) b.innerHTML = HEART_SVG; });
+  if (state.topics.length === 0) {
+    showScreen('onboarding');
+    onbGoTo(1);
+  } else {
+    showScreen('feed');
+    loadBills();
+  }
+}
+
+document.addEventListener('DOMContentLoaded', boot);
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+
+// ============================================================
+// PULL TO REFRESH
+// ============================================================
+function initPullToRefresh() {
+  const indicator = document.getElementById('ptr-indicator');
+  const ring = document.getElementById('ptr-ring');
+  if (!indicator || !ring) return;
+
+  const THRESHOLD = 72;
+  let startY = 0, dragY = 0, dragging = false, triggered = false;
+
+  function setPos(y) {
+    // Rubberband: full movement up to threshold, then logarithmic resistance
+    const pull = y <= THRESHOLD ? y : THRESHOLD + Math.log1p(y - THRESHOLD) * 14;
+    indicator.style.transition = 'none';
+    indicator.style.transform = `translateY(${Math.round(pull - 58)}px)`;
+    const progress = Math.min(pull / THRESHOLD, 1);
+    ring.style.transform = `rotate(${progress * 300}deg)`;
+    ring.style.borderTopColor = progress >= 1 ? 'var(--yellow)' : 'var(--muted)';
+    triggered = pull >= THRESHOLD;
+    indicator.classList.toggle('ptr-spinning', triggered);
+    if (triggered) ring.style.transform = '';
+  }
+
+  function snapBack(doRefresh) {
+    indicator.style.transition = 'transform 0.45s cubic-bezier(0.34, 1.4, 0.64, 1)';
+    indicator.style.transform = 'translateY(-58px)';
+    indicator.classList.remove('ptr-spinning');
+    ring.style.transform = '';
+    ring.style.borderTopColor = '';
+    if (doRefresh) {
+      setTimeout(() => {
+        if (state.feedView === 'pulse') loadPulse(true);
+        else if (state.feedView === 'polls') loadPolls(true);
+        else refreshFeed();
+      }, 120);
+    }
+  }
+
+  document.addEventListener('touchstart', (e) => {
+    if (window.scrollY > 2) return;
+    startY = e.touches[0].clientY;
+    dragging = true;
+    triggered = false;
+  }, { passive: true });
+
+  document.addEventListener('touchmove', (e) => {
+    if (!dragging) return;
+    dragY = e.touches[0].clientY - startY;
+    if (dragY <= 0) { dragging = false; return; }
+    setPos(dragY);
+  }, { passive: true });
+
+  document.addEventListener('touchend', () => {
+    if (!dragging) return;
+    dragging = false;
+    snapBack(triggered);
+    dragY = 0;
+  });
+}
+</script>
+</body>
+</html>

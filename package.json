@@ -1,0 +1,13 @@
+{
+  "name": "uk-bills-tracker",
+  "version": "0.1.0",
+  "private": true,
+  "description": "UK Parliament bill tracker with critical AI analysis.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "pdf-parse": "^1.1.4"
+  }
+}
