@@ -1047,7 +1047,7 @@ Return ONLY valid JSON:
   }
 
   // ── Admin: trigger background generation ──────────────────────
-  if (pathname === '/api/admin/generate' && req.method === 'POST') {
+  if (pathname === '/api/admin/generate' && (req.method === 'POST' || req.method === 'GET')) {
     if (!ADMIN_KEY || req.headers['x-admin-key'] !== ADMIN_KEY) {
       res.writeHead(401, { 'Content-Type': 'application/json' });
       return res.end(JSON.stringify({ error: 'Unauthorized' }));
