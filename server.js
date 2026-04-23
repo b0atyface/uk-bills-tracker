@@ -1148,6 +1148,127 @@ Return ONLY valid JSON:
     }));
   }
 
+  // Admin: upsert a summary for a specific bill. Used to manually override
+  // Claude output, or to populate summaries from outside the server
+  // without burning Claude credits.
+  //
+  //   PUT /api/admin/summary/:billId
+  //   Body: { tile_summary, their_framing, summary, counter_summary, affected_groups, watch_for }
+  //   Header: x-admin-key
+  //
+  // Automatically stamps schema: 9, topics_covered (from topicsForBill),
+  // bill_last_update (from Parliament), has_bill_text: false, generated_at.
+  // Set `manual: true` to flag the summary as human-written so the
+  // cron job never overwrites it.
+  {
+    const adminSummaryMatch = pathname.match(/^\/api\/admin\/summary\/([^/]+)$/);
+    if (adminSummaryMatch && (req.method === 'PUT' || req.method === 'POST' || req.method === 'PATCH')) {
+      if (!ADMIN_KEY || req.headers['x-admin-key'] !== ADMIN_KEY) {
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: 'Unauthorized' }));
+      }
+      const billId = adminSummaryMatch[1];
+
+      let body = '';
+      req.on('data', (c) => { body += c; });
+      req.on('end', async () => {
+        try {
+          const input = JSON.parse(body || '{}');
+
+          // Look up the bill so we can stamp topics + last update
+          let bill = null;
+          try {
+            const billResp = await getJson(
+              `https://bills-api.parliament.uk/api/v1/Bills/${encodeURIComponent(billId)}`
+            );
+            bill = billResp || null;
+          } catch {}
+
+          const topics = bill ? topicsForBill(bill) : [];
+          const topicsCovered = topics.map((t) => t.id).sort();
+
+          // Merge with any existing summary (preserve fields not sent)
+          const existing = db.getSummaries()[String(billId)] || {};
+          const merged = {
+            ...existing,
+            schema:          9,
+            tile_summary:    input.tile_summary    ?? existing.tile_summary    ?? '',
+            their_framing:   input.their_framing   ?? existing.their_framing   ?? '',
+            summary:         input.summary         ?? existing.summary         ?? '',
+            counter_summary: input.counter_summary ?? existing.counter_summary ?? '',
+            affected_groups: input.affected_groups ?? existing.affected_groups ?? [],
+            watch_for:       input.watch_for       ?? existing.watch_for       ?? '',
+            topics_covered:  input.topics_covered  ?? topicsCovered,
+            has_bill_text:   existing.has_bill_text || false,
+            bill_last_update: bill?.lastUpdate || existing.bill_last_update || null,
+            manual:          !!input.manual,
+            generated_at:    new Date().toISOString(),
+          };
+
+          await db.upsertSummary(billId, merged, SUMMARIES_FILE);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true, billId, topics_covered: merged.topics_covered }));
+        } catch (e) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: e.message }));
+        }
+      });
+      return;
+    }
+  }
+
+  // Admin: list every currently-open bill with its summary status.
+  // Useful for "which bills do I still need to summarise?".
+  if (pathname === '/api/admin/bills' && req.method === 'GET') {
+    if (!ADMIN_KEY || req.headers['x-admin-key'] !== ADMIN_KEY) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'Unauthorized' }));
+    }
+    (async () => {
+      try {
+        const upstream = await getJson(
+          'https://bills-api.parliament.uk/api/v1/Bills?SortOrder=DateUpdatedDescending&take=200'
+        );
+        const summaries = db.getSummaries();
+        const items = (upstream.items || []).map((b) => {
+          const topics = topicsForBill(b);
+          const cached = summaries[String(b.billId)];
+          const covered = cached?.topics_covered || [];
+          const missingTopics = topics.map((t) => t.id).filter((id) => !covered.includes(id));
+          const needsUpdate = !cached
+            || cached.schema !== 9
+            || missingTopics.length > 0
+            || (b.lastUpdate && cached.bill_last_update && b.lastUpdate > cached.bill_last_update);
+          return {
+            billId:       b.billId,
+            shortTitle:   b.shortTitle,
+            longTitle:    b.longTitle,
+            summary:      b.summary,
+            currentStage: b.currentStage?.description || '',
+            house:        b.currentHouse || b.originatingHouse || '',
+            lastUpdate:   b.lastUpdate || null,
+            topics:       topics.map((t) => ({ id: t.id, label: t.label })),
+            hasCachedSummary: !!cached,
+            cachedSchema: cached?.schema || null,
+            manual:       !!cached?.manual,
+            needsUpdate,
+          };
+        });
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({
+          total:     items.length,
+          needsUpdate: items.filter((i) => i.needsUpdate).length,
+          withTopics:  items.filter((i) => i.topics.length > 0).length,
+          items,
+        }));
+      } catch (e) {
+        res.writeHead(502, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: e.message }));
+      }
+    })();
+    return;
+  }
+
   let filePath = path.join(ROOT, pathname === '/' ? 'index.html' : pathname);
   const normalized = path.normalize(filePath);
   if (!normalized.startsWith(ROOT + path.sep) && normalized !== ROOT) {
@@ -1231,9 +1352,15 @@ async function runGeneratePending() {
       const topics = topicsForBill(b);
       if (topics.length === 0) return false;
       const cached = summaries[String(b.billId)];
-      if (!cached || cached.schema !== 8) return true;
-      // Re-process if any matched topic isn't in the cached coverage list
-      return !topics.every((t) => (cached.topics_covered || []).includes(t.id));
+      // Never overwrite manually-written summaries
+      if (cached?.manual) return false;
+      // No cache or schema drift → must generate
+      if (!cached || cached.schema !== 9) return true;
+      // Missing topic coverage → must regenerate
+      if (!topics.every((t) => (cached.topics_covered || []).includes(t.id))) return true;
+      // Bill has moved since we last generated → regenerate
+      if (b.lastUpdate && cached.bill_last_update && b.lastUpdate > cached.bill_last_update) return true;
+      return false;
     });
 
     _job.skipped = bills.length - todo.length;
@@ -1250,7 +1377,11 @@ async function runGeneratePending() {
         // by calling our own /api/summary endpoint internally
         const existing = db.getSummaries()[String(bill.billId)];
         const requested = topics.map((t) => t.id).sort();
-        if (existing && existing.schema === 8 && requested.every((id) => (existing.topics_covered || []).includes(id))) {
+        const alreadyCovered = existing && existing.schema === 9 &&
+          requested.every((id) => (existing.topics_covered || []).includes(id));
+        const billMoved = bill.lastUpdate && existing?.bill_last_update &&
+          bill.lastUpdate > existing.bill_last_update;
+        if (alreadyCovered && !billMoved) {
           _job.skipped++;
           _job.total--;
           continue;
@@ -1262,7 +1393,7 @@ async function runGeneratePending() {
         const prompt = buildSummaryPrompt(bill, topics, topicsList, billText);
         const aiData = await claudeCall({
           model: 'claude-sonnet-4-6',
-          max_tokens: 3500,
+          max_tokens: 3000,
           tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 2, allowed_domains: TRUSTED_SOURCES }],
           messages: [{ role: 'user', content: prompt }],
         });
@@ -1273,7 +1404,7 @@ async function runGeneratePending() {
         const json = JSON.parse(j);
 
         const merged = {
-          schema: 8,
+          schema: 9,
           tile_summary:    json.tile_summary    || '',
           their_framing:   json.their_framing   || '',
           summary:         json.summary         || '',
@@ -1282,6 +1413,7 @@ async function runGeneratePending() {
           watch_for:       json.watch_for       || '',
           topics_covered:  requested,
           has_bill_text:   billText.length > 500,
+          bill_last_update: bill.lastUpdate || null,
           generated_at:    new Date().toISOString(),
         };
 
@@ -1307,26 +1439,39 @@ async function runGeneratePending() {
   }
 }
 
-// Extract the prompt string so both the manual /api/summary and the auto job share identical logic
+// Extract the prompt string so both the manual /api/summary and the auto job share identical logic.
+//
+// This prompt is tuned for MAXIMUM accessibility — imagine a curious
+// 13-year-old, or an adult who's never followed politics before.
+// Teenagers getting interested in politics should read a summary and
+// walk away understanding exactly what the bill does and why it matters.
 function buildSummaryPrompt(bill, topics, topicsList, billText) {
-  return `You are a progressive political watchdog writing for people who care about civil liberties, marginalised communities, and holding power to account. Your readers worry about trans rights, LGBTQ+ protections, immigration policy, racial justice, and the erosion of hard-won freedoms. They want the real picture — not the government's press release.
+  return `You are writing for a UK politics app used by teenagers, students, and adults who have never followed Parliament before. Your job is to translate bills into language anyone can understand — and tell the truth about who wins and who loses.
+
+WHO YOU'RE WRITING FOR:
+- A 13-year-old picking up the app after seeing something on TikTok.
+- A university student trying to work out who to vote for.
+- A parent who's tired of not understanding the news.
+- Someone marginalised who needs to know if a bill hurts them.
+
+These readers have never read a bill before. Never will. They need the truth, fast, in words they already use.
+
+HARD LANGUAGE RULES (not suggestions):
+1. Reading age 12. If a 13-year-old wouldn't say it, rewrite it.
+2. Maximum 15 words per sentence. Shorter is better.
+3. No jargon. Ever. If you must use a legal or political term, define it immediately in plain words, like: "judicial review (a way to challenge the government in court)".
+4. Use "the government", "the police", "your MP" — never "HMG", "the executive", "parliamentarians".
+5. Use "bill" not "legislation", "law" not "statute", "change the law" not "amend the statute book".
+6. Write to the reader as "you" wherever it fits.
+7. Never open a sentence with "This bill", "The bill", or "It".
+8. Active voice only. "The bill gives police new powers" not "New powers would be given to police by the bill".
+9. No empty hedging like "could potentially arguably". Be clear.
 
 EDITORIAL STANCE:
-Governments routinely dress up harmful legislation in reassuring language. "Protecting children." "Keeping communities safe." "Restoring common sense." Your job is to cut through that framing and ask: who does this actually affect, and how?
-- When a bill restricts gender-affirming care under the guise of "safeguarding", name that.
-- When an immigration bill strips legal rights under "border security" framing, say who gets hurt.
-- When protest rights are curtailed under "anti-terrorism" language, call it out.
-- When a bill is genuinely good for marginalised groups, say that clearly too.
-Be honest, not alarmist. Sharp, not partisan.
-
-WRITING RULES:
-- Plain English only. No jargon without a plain explanation.
-- Short sentences. Reading age 14 max. Over 20 words — split it.
-- Write directly to the reader. "This means you..." not third person.
-- Never start a sentence with "This bill", "The bill", or "It".
+Governments dress up harmful bills in reassuring language — "protecting children", "keeping communities safe", "common sense". Your job is to cut through the spin and say who this actually affects and how. Be honest about who gains AND who loses. When a bill is genuinely good for marginalised people, say that just as clearly. Be sharp, not alarmist. Truthful, not partisan.
 
 STEP 1 — SEARCH:
-Search for what UK civil-society groups have said about this specific bill. Target: Liberty, Big Brother Watch, Stonewall, Mermaids, Trans Actual, Good Law Project, Open Rights Group, Amnesty UK, Refugee Council, Runnymede Trust, Disability Rights UK, and any groups relevant to the topics below. Aim for 3–6 searches. Capture real URLs.
+Search for what UK civil-society groups have said about this specific bill. Target: Liberty, Big Brother Watch, Stonewall, Mermaids, Trans Actual, Good Law Project, Open Rights Group, Amnesty UK, Refugee Council, Runnymede Trust, Disability Rights UK, JCWI, Friends of the Earth, Shelter, TUC — and any group relevant to the topics below. 3–6 searches. Real URLs only.
 
 STEP 2 — READ THE BILL:
 Bill title: ${bill.shortTitle || ''}
@@ -1335,36 +1480,36 @@ Official summary: ${bill.summary || '(none provided)'}
 Current stage: ${bill.currentStage || ''}
 House: ${bill.house || ''}
 
-Topics this bill matches (by our keyword system):
+Topics this bill matches:
 ${topicsList}
 
-${billText ? `Full bill text (from the latest published PDF):\n${billText}\n` : 'No full bill text published yet. Be honest about that limitation.'}
+${billText ? `Full bill text (from the latest PDF):\n${billText}\n` : 'No full bill text published yet. Be honest about that limitation.'}
 
 STEP 3 — WRITE THE JSON:
 Respond ONLY with valid JSON. No preamble, no markdown.
 
 {
-  "tile_summary": "ONE sentence, max 18 words. What does this bill actually do? No jargon. Write like a headline that cuts through the spin.",
-  "their_framing": "ONE sentence. What do the bill's supporters and the government claim this bill is for?",
-  "summary": "2–3 plain sentences. What does this bill actually do — especially to real people?",
-  "for_you": "One short paragraph, written directly to the reader (use 'you').",
-  "counter_summary": "2-3 plain sentences. What aren't the government acknowledging?",
+  "tile_summary": "ONE sentence, max 15 words. What does the bill do, in words a 13-year-old would use?",
+  "their_framing": "ONE sentence. What does the government say this bill is for? Quote their actual framing.",
+  "summary": "2–3 plain sentences. What does the bill actually do? Who does it affect?",
+  "counter_summary": "2–3 plain sentences. What is the government not saying? What's the catch?",
   "affected_groups": [
     {
-      "topic_id": "<exact ID from topic list above>",
-      "label": "<exact label from topic list above>",
+      "topic_id": "<exact ID from the topic list above>",
+      "label": "<exact label from the topic list above>",
       "stance": "positive | negative | mixed | neutral",
-      "impact": "2–4 plain sentences. How does this bill affect people in this group?",
-      "sources": [{"organisation": "e.g. Liberty", "url": "https://real-url"}]
+      "impact": "2–4 plain sentences. How does this affect people in this group, specifically?",
+      "sources": [{"organisation": "e.g. Liberty", "url": "https://real-url-from-search"}]
     }
   ],
-  "watch_for": "One short sentence. What is the next moment to watch?"
+  "watch_for": "ONE short sentence. What's the next moment to watch — a vote, a stage, a debate?"
 }
 
 STRICT RULES:
-- affected_groups MUST have exactly one entry per topic_id in the input list.
-- Sources must be real URLs from your search. Empty array if nothing found.
-- tile_summary is ONE sentence — written like a headline.`;
+- affected_groups MUST have exactly one entry per topic_id listed above.
+- Sources must be REAL URLs returned from your search. If none found, use an empty array.
+- Every sentence you write passes the "would a 13-year-old say this?" test.
+- No Latin, no acronyms without definition, no political cliches.`;
 }
 
 // ─── Admin endpoints ──────────────────────────────────────────────────────────
