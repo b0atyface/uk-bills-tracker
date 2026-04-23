@@ -5,6 +5,7 @@ const path = require('path');
 const url = require('url');
 const zlib = require('zlib');
 const pdfParse = require('pdf-parse');
+const db = require('./db');
 
 // Generate a PNG icon on-the-fly: dark bg, yellow circle, no npm image libs needed.
 function makePng(size) {
@@ -160,11 +161,15 @@ async function getBillText(billId) {
   return '';
 }
 
-function loadSummaries() {
-  try { return JSON.parse(fs.readFileSync(SUMMARIES_FILE, 'utf8')); } catch { return {}; }
-}
+// Summaries are now backed by Postgres (with file fallback via db.js).
+// loadSummaries() stays synchronous — db.js keeps an in-memory copy.
+function loadSummaries() { return db.getSummaries(); }
 function saveSummaries(s) {
-  try { fs.writeFileSync(SUMMARIES_FILE, JSON.stringify(s, null, 2)); } catch (e) { console.error('save summaries:', e.message); }
+  // Legacy bulk-save — used only when the whole object is mutated.
+  // Prefer upsertSummary(billId, data) for individual writes.
+  Object.entries(s).forEach(([id, data]) => {
+    db.upsertSummary(id, data, SUMMARIES_FILE).catch(() => {});
+  });
 }
 
 function loadRssItems() {
@@ -659,7 +664,7 @@ STRICT RULES:
           generated_at: new Date().toISOString(),
         };
         summaries[billId] = merged;
-        saveSummaries(summaries);
+        db.upsertSummary(billId, merged, SUMMARIES_FILE).catch((e) => console.error('upsert summary:', e.message));
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(merged));
       } catch (err) {
@@ -728,7 +733,7 @@ Return ONLY valid JSON:
           const text = data.content?.[0]?.text || '';
           const json = JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1));
           summaries[billId] = { ...(summaries[billId] || {}), reaction: { ...json, generated_at: new Date().toISOString() } };
-          saveSummaries(summaries);
+          db.upsertSummary(billId, summaries[billId], SUMMARIES_FILE).catch(() => {});
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify(json));
         } catch (err) {
@@ -1062,6 +1067,12 @@ Return ONLY valid JSON:
   });
 });
 
-server.listen(PORT, () => {
-  console.log(`→ http://localhost:${PORT}`);
+// Init DB (loads summaries into memory) then start listening
+db.init(SUMMARIES_FILE).then(() => {
+  server.listen(PORT, () => {
+    console.log(`→ http://localhost:${PORT}  [db: ${db.isPostgres() ? 'postgres' : 'file'}]`);
+  });
+}).catch((e) => {
+  console.error('Startup failed:', e.message);
+  process.exit(1);
 });
