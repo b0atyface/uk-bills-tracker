@@ -1001,6 +1001,80 @@ Return ONLY valid JSON:
     return;
   }
 
+  // Fetch the first paragraphs of an article (server-side scrape).
+  // Strips HTML, returns clean text paragraphs. Cached in memory for 1 hour.
+  if (pathname === '/api/article-text' && req.method === 'GET') {
+    const target = (parsed.query.url || '').toString().trim();
+    if (!target || !/^https?:\/\//i.test(target)) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'url required' }));
+    }
+    (async () => {
+      try {
+        if (!global._articleTextCache) global._articleTextCache = new Map();
+        const cache = global._articleTextCache;
+        const hit = cache.get(target);
+        if (hit && Date.now() - hit.ts < 60 * 60 * 1000) {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          return res.end(JSON.stringify(hit.data));
+        }
+
+        const buf  = await getBuffer(target);
+        const html = buf.toString('utf8');
+
+        // Strip script/style blocks first so we don't pick up JSON from tag guards
+        const stripped = html
+          .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+          .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+          .replace(/<noscript[\s\S]*?<\/noscript>/gi, ' ');
+
+        // Extract <p> tag contents
+        const paragraphs = [];
+        const pRegex = /<p\b[^>]*>([\s\S]*?)<\/p>/gi;
+        let m;
+        while ((m = pRegex.exec(stripped)) !== null && paragraphs.length < 6) {
+          const text = m[1]
+            .replace(/<[^>]+>/g, '')
+            .replace(/&nbsp;/g, ' ')
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"')
+            .replace(/&#39;/g, "'")
+            .replace(/&#x27;/g, "'")
+            .replace(/&mdash;/g, '—')
+            .replace(/&ndash;/g, '–')
+            .replace(/&hellip;/g, '…')
+            .replace(/&rsquo;/g, '\u2019')
+            .replace(/&lsquo;/g, '\u2018')
+            .replace(/&rdquo;/g, '\u201D')
+            .replace(/&ldquo;/g, '\u201C')
+            .replace(/\s+/g, ' ')
+            .trim();
+          // Skip junk / navigation / very short paragraphs
+          if (text.length < 90) continue;
+          if (/^(cookies?|subscribe|newsletter|follow us|advert|support |read more|sign up)/i.test(text)) continue;
+          paragraphs.push(text);
+        }
+
+        const data = { paragraphs: paragraphs.slice(0, 3) };
+        cache.set(target, { ts: Date.now(), data });
+        // Keep cache bounded
+        if (cache.size > 500) {
+          const oldest = [...cache.entries()].sort((a, b) => a[1].ts - b[1].ts).slice(0, 100);
+          oldest.forEach(([k]) => cache.delete(k));
+        }
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(data));
+      } catch (err) {
+        res.writeHead(502, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message, paragraphs: [] }));
+      }
+    })();
+    return;
+  }
+
   if (pathname === '/api/pulse' && req.method === 'GET') {
     (async () => {
       try {
