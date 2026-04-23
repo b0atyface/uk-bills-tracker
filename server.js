@@ -55,6 +55,7 @@ const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY || '';
 if (!ANTHROPIC_KEY) console.warn('⚠︎  ANTHROPIC_API_KEY not set — /api/summary will fail');
 const TWFY_KEY = process.env.TWFY_API_KEY || '';
 if (!TWFY_KEY) console.warn('⚠︎  TWFY_API_KEY not set — /api/mp-statements will fail');
+const ADMIN_KEY = process.env.ADMIN_KEY || '';
 
 // Simple in-memory rate limiter for AI endpoints — max 20 calls per IP per hour.
 const _aiRateLimitMap = new Map();
@@ -1045,6 +1046,34 @@ Return ONLY valid JSON:
     return;
   }
 
+  // ── Admin: trigger background generation ──────────────────────
+  if (pathname === '/api/admin/generate' && req.method === 'POST') {
+    if (!ADMIN_KEY || req.headers['x-admin-key'] !== ADMIN_KEY) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'Unauthorized' }));
+    }
+    runGeneratePending(); // fire and forget — non-blocking
+    res.writeHead(202, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({
+      ok: true,
+      alreadyRunning: _job.running,
+      message: _job.running ? 'Job already in progress' : 'Generation started',
+    }));
+  }
+
+  // ── Admin: job status ──────────────────────────────────────────
+  if (pathname === '/api/admin/status' && req.method === 'GET') {
+    if (!ADMIN_KEY || req.headers['x-admin-key'] !== ADMIN_KEY) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'Unauthorized' }));
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({
+      ..._job,
+      totalSummaries: Object.keys(db.getSummaries()).length,
+    }));
+  }
+
   let filePath = path.join(ROOT, pathname === '/' ? 'index.html' : pathname);
   const normalized = path.normalize(filePath);
   if (!normalized.startsWith(ROOT + path.sep) && normalized !== ROOT) {
@@ -1066,6 +1095,205 @@ Return ONLY valid JSON:
     res.end(data);
   });
 });
+
+// ─── Auto-generation engine ───────────────────────────────────────────────────
+//
+// POST /api/admin/generate  — starts a background run (idempotent, safe to call while running)
+// GET  /api/admin/status    — returns current job state as JSON
+//
+// Protected by the ADMIN_KEY env var (x-admin-key header).
+// Designed to be called by a daily cron — cron-job.org hits it every night.
+
+const BILL_TOPICS = [
+  { id: 'technology',     label: 'Technology',       keywords: ['technology', 'software', 'digital', 'broadband', 'telecoms', 'semiconductor', 'online platform', 'internet', 'cybersecurity', 'data protection', 'privacy', 'personal data', 'biometric', 'online safety', 'age verification', 'ofcom', 'social media'] },
+  { id: 'ai',             label: 'AI',               keywords: ['artificial intelligence', ' ai ', 'ai bill', 'algorithm', 'automated decision', 'machine learning', 'generative'] },
+  { id: 'crypto',         label: 'Crypto',           keywords: ['cryptocurrency', 'crypto', 'digital asset', 'bitcoin', 'blockchain', 'stablecoin', 'cryptoasset'] },
+  { id: 'economy',        label: 'Economy',          keywords: ['economy', 'gdp', 'inflation', 'fiscal', 'budget', 'public finance', 'national insurance', 'tax ', 'corporation tax', ' vat ', 'universal credit', 'benefits', 'welfare', 'pension', 'carers'] },
+  { id: 'business',       label: 'Business',         keywords: ['business', 'trade', 'corporation', 'company', 'enterprise', 'competition', 'market', 'commerce', 'farming', 'agriculture', 'rural', 'fisheries'] },
+  { id: 'current-affairs',label: 'Current Affairs',  keywords: ['national security', 'terrorism', 'intelligence services', 'espionage', 'surveillance', 'defence', 'armed forces', 'military', 'veterans', 'elections', 'voter', 'electoral', 'constitution', 'house of lords', 'devolution', 'foreign'] },
+  { id: 'climate',        label: 'Climate',          keywords: ['climate', 'net zero', 'carbon', 'emissions', 'renewable', 'fossil fuel', 'environment'] },
+  { id: 'health',         label: 'Health',           keywords: ['nhs', 'health service', 'tobacco', 'pharmacy', 'cancer', 'patient', 'healthcare', 'medicines', 'disability', 'disabled', 'accessibility', 'pip', ' sen '] },
+  { id: 'mental-health',  label: 'Mental Health',    keywords: ['mental health', 'camhs', 'psychiatric', 'wellbeing'] },
+  { id: 'education',      label: 'Education',        keywords: ['education', 'schools', 'teachers', 'university', 'student', 'children', 'child protection', 'safeguarding'] },
+  { id: 'women',          label: "Women's Rights",   keywords: ['women', 'maternity', 'misogyny', 'domestic abuse', 'violence against women'] },
+  { id: 'trans',          label: 'Trans Rights',     keywords: ['trans ', 'transgender', 'gender identity', 'gender recognition', 'non-binary', 'conversion therapy', 'single-sex', 'puberty blocker', 'gender clinic', 'gender dysphoria', 'biological sex', 'sex-based', 'toilets', 'sports ban', 'tavistock'] },
+  { id: 'lgbtq',          label: 'LGBTQI+',          keywords: ['lgbt', 'gay', 'lesbian', 'bisexual', 'same-sex', 'sexual orientation', 'queer', 'civil partnership', 'conversion practice', 'homophobia', 'hate crime'] },
+  { id: 'immigration',    label: 'Immigration',      keywords: ['immigration', 'asylum', 'migrant', 'refugee', 'border', 'visa', 'nationality', 'deportation', 'detention', 'hostile environment', 'rwanda', 'stateless', 'right to remain', 'leave to remain', 'undocumented'] },
+  { id: 'workers',        label: "Workers' Rights",  keywords: ['workers', 'employment', 'trade union', 'minimum wage', 'zero hours', 'housing', 'renters', 'leasehold', 'tenant', 'landlord'] },
+  { id: 'crime',          label: 'Crime & Justice',  keywords: ['policing', 'police', 'criminal justice', 'stop and search', 'prisons', 'sentencing', 'protest', 'public order', 'pornography', 'sex work', 'intimate image', 'obscene', 'racial', 'racism', 'ethnicity', 'discrimination', 'hate crime', 'surveillance', 'facial recognition', 'counter-terrorism', 'serious disruption', 'injunction'] },
+];
+
+function topicsForBill(bill) {
+  const hay = ` ${bill.shortTitle || ''} ${bill.longTitle || ''} ${bill.summary || ''} `.toLowerCase();
+  return BILL_TOPICS.filter((t) => t.keywords.some((kw) => hay.includes(kw)));
+}
+
+function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
+
+// Job state — single global, only one run at a time
+const _job = {
+  running:   false,
+  startedAt: null,
+  done:      0,
+  failed:    0,
+  skipped:   0,
+  total:     0,
+  current:   '',
+  lastError: '',
+  finishedAt: null,
+};
+
+async function runGeneratePending() {
+  if (_job.running) return; // already running — idempotent
+  Object.assign(_job, { running: true, startedAt: new Date().toISOString(), done: 0, failed: 0, skipped: 0, total: 0, current: '', lastError: '', finishedAt: null });
+  console.log('[generate] Starting background summary run');
+
+  try {
+    const data = await getJson('https://bills-api.parliament.uk/api/v1/Bills?SortOrder=DateUpdatedDescending&take=200');
+    const bills = data.items || [];
+    const summaries = db.getSummaries();
+
+    const todo = bills.filter((b) => {
+      const topics = topicsForBill(b);
+      if (topics.length === 0) return false;
+      const cached = summaries[String(b.billId)];
+      if (!cached || cached.schema !== 8) return true;
+      // Re-process if any matched topic isn't in the cached coverage list
+      return !topics.every((t) => (cached.topics_covered || []).includes(t.id));
+    });
+
+    _job.skipped = bills.length - todo.length;
+    _job.total   = todo.length;
+    console.log(`[generate] ${todo.length} bills to process, ${_job.skipped} already cached`);
+
+    for (let i = 0; i < todo.length; i++) {
+      const bill   = todo[i];
+      const topics = topicsForBill(bill);
+      _job.current = bill.shortTitle || String(bill.billId);
+
+      try {
+        // Re-use the same prompt + Claude call already in the server
+        // by calling our own /api/summary endpoint internally
+        const existing = db.getSummaries()[String(bill.billId)];
+        const requested = topics.map((t) => t.id).sort();
+        if (existing && existing.schema === 8 && requested.every((id) => (existing.topics_covered || []).includes(id))) {
+          _job.skipped++;
+          _job.total--;
+          continue;
+        }
+
+        const billText = await getBillText(bill.billId);
+        const topicsList = topics.map((t) => `- ${t.id}: ${t.label}`).join('\n');
+
+        const prompt = buildSummaryPrompt(bill, topics, topicsList, billText);
+        const aiData = await claudeCall({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 3500,
+          tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 2, allowed_domains: TRUSTED_SOURCES }],
+          messages: [{ role: 'user', content: prompt }],
+        });
+
+        const text = extractFinalText(aiData);
+        if (!text) throw new Error('No text from Claude');
+        const j = text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1);
+        const json = JSON.parse(j);
+
+        const merged = {
+          schema: 8,
+          tile_summary:    json.tile_summary    || '',
+          their_framing:   json.their_framing   || '',
+          summary:         json.summary         || '',
+          counter_summary: json.counter_summary || '',
+          affected_groups: json.affected_groups || [],
+          watch_for:       json.watch_for       || '',
+          topics_covered:  requested,
+          has_bill_text:   billText.length > 500,
+          generated_at:    new Date().toISOString(),
+        };
+
+        await db.upsertSummary(bill.billId, merged, SUMMARIES_FILE);
+        _job.done++;
+        console.log(`[generate] ✓ ${_job.done}/${_job.total} — ${_job.current}`);
+      } catch (e) {
+        _job.failed++;
+        _job.lastError = e.message;
+        console.error(`[generate] ✗ ${_job.current}: ${e.message}`);
+      }
+
+      // Rate limit — 95s between Claude calls (30k TPM cap)
+      if (i < todo.length - 1) await sleep(95000);
+    }
+  } catch (e) {
+    _job.lastError = e.message;
+    console.error('[generate] Fatal error:', e.message);
+  } finally {
+    _job.running    = false;
+    _job.finishedAt = new Date().toISOString();
+    console.log(`[generate] Done — ${_job.done} generated, ${_job.failed} failed, ${_job.skipped} skipped`);
+  }
+}
+
+// Extract the prompt string so both the manual /api/summary and the auto job share identical logic
+function buildSummaryPrompt(bill, topics, topicsList, billText) {
+  return `You are a progressive political watchdog writing for people who care about civil liberties, marginalised communities, and holding power to account. Your readers worry about trans rights, LGBTQ+ protections, immigration policy, racial justice, and the erosion of hard-won freedoms. They want the real picture — not the government's press release.
+
+EDITORIAL STANCE:
+Governments routinely dress up harmful legislation in reassuring language. "Protecting children." "Keeping communities safe." "Restoring common sense." Your job is to cut through that framing and ask: who does this actually affect, and how?
+- When a bill restricts gender-affirming care under the guise of "safeguarding", name that.
+- When an immigration bill strips legal rights under "border security" framing, say who gets hurt.
+- When protest rights are curtailed under "anti-terrorism" language, call it out.
+- When a bill is genuinely good for marginalised groups, say that clearly too.
+Be honest, not alarmist. Sharp, not partisan.
+
+WRITING RULES:
+- Plain English only. No jargon without a plain explanation.
+- Short sentences. Reading age 14 max. Over 20 words — split it.
+- Write directly to the reader. "This means you..." not third person.
+- Never start a sentence with "This bill", "The bill", or "It".
+
+STEP 1 — SEARCH:
+Search for what UK civil-society groups have said about this specific bill. Target: Liberty, Big Brother Watch, Stonewall, Mermaids, Trans Actual, Good Law Project, Open Rights Group, Amnesty UK, Refugee Council, Runnymede Trust, Disability Rights UK, and any groups relevant to the topics below. Aim for 3–6 searches. Capture real URLs.
+
+STEP 2 — READ THE BILL:
+Bill title: ${bill.shortTitle || ''}
+Long title: ${bill.longTitle || ''}
+Official summary: ${bill.summary || '(none provided)'}
+Current stage: ${bill.currentStage || ''}
+House: ${bill.house || ''}
+
+Topics this bill matches (by our keyword system):
+${topicsList}
+
+${billText ? `Full bill text (from the latest published PDF):\n${billText}\n` : 'No full bill text published yet. Be honest about that limitation.'}
+
+STEP 3 — WRITE THE JSON:
+Respond ONLY with valid JSON. No preamble, no markdown.
+
+{
+  "tile_summary": "ONE sentence, max 18 words. What does this bill actually do? No jargon. Write like a headline that cuts through the spin.",
+  "their_framing": "ONE sentence. What do the bill's supporters and the government claim this bill is for?",
+  "summary": "2–3 plain sentences. What does this bill actually do — especially to real people?",
+  "for_you": "One short paragraph, written directly to the reader (use 'you').",
+  "counter_summary": "2-3 plain sentences. What aren't the government acknowledging?",
+  "affected_groups": [
+    {
+      "topic_id": "<exact ID from topic list above>",
+      "label": "<exact label from topic list above>",
+      "stance": "positive | negative | mixed | neutral",
+      "impact": "2–4 plain sentences. How does this bill affect people in this group?",
+      "sources": [{"organisation": "e.g. Liberty", "url": "https://real-url"}]
+    }
+  ],
+  "watch_for": "One short sentence. What is the next moment to watch?"
+}
+
+STRICT RULES:
+- affected_groups MUST have exactly one entry per topic_id in the input list.
+- Sources must be real URLs from your search. Empty array if nothing found.
+- tile_summary is ONE sentence — written like a headline.`;
+}
+
+// ─── Admin endpoints ──────────────────────────────────────────────────────────
 
 // Init DB (loads summaries into memory) then start listening
 db.init(SUMMARIES_FILE).then(() => {
