@@ -1099,10 +1099,14 @@ Return ONLY valid JSON:
   if (pathname === '/api/pulse' && req.method === 'GET') {
     (async () => {
       try {
-        const FORTY_FIVE_MIN = 45 * 60 * 1000;
+        // Cache TTL: 15 minutes — tight enough that top-of-feed is usually <15m
+        // old, loose enough that bursts of traffic don't re-hammer RSS sources.
+        // `?fresh=1` bypasses the cache (triggered by the app's pull-to-refresh).
+        const FIFTEEN_MIN = 15 * 60 * 1000;
+        const forceFresh = parsed.query.fresh === '1' || parsed.query.fresh === 'true';
         let cached = null;
         try { cached = JSON.parse(fs.readFileSync(PULSE_FILE, 'utf8')); } catch {}
-        if (cached && cached.cached_at && (Date.now() - new Date(cached.cached_at).getTime()) < FORTY_FIVE_MIN) {
+        if (!forceFresh && cached && cached.cached_at && (Date.now() - new Date(cached.cached_at).getTime()) < FIFTEEN_MIN) {
           res.writeHead(200, { 'Content-Type': 'application/json' });
           return res.end(JSON.stringify({ ...cached, from_cache: true }));
         }
