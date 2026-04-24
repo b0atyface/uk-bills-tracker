@@ -249,35 +249,16 @@ const TRUSTED_SOURCES = [
 ];
 
 // ---- Pulse: curated UK political news sources ----
-// Curated feeds covering progressive, liberal, centrist, and unbiased
-// outlets. Non-UK feeds are deliberately included — our PULSE_MUST_INCLUDE
-// filter restricts to UK political content anyway, so international sources
-// only surface when they cover UK government/parties/bills.
 const PULSE_FEEDS = [
-  // ── Progressive / left ─────────────────────────────────────────
-  { url: 'https://www.theguardian.com/politics/rss',            source: 'The Guardian' },
-  { url: 'https://novaramedia.com/feed/',                        source: 'Novara Media' },
-  { url: 'https://bylinetimes.com/feed/',                        source: 'Byline Times' },
-  { url: 'https://www.newstatesman.com/feeds/all',              source: 'New Statesman' },
-  { url: 'https://declassifieduk.org/feed/',                     source: 'Declassified UK' },
-  { url: 'https://tribunemag.co.uk/feed',                       source: 'Tribune' },
-  { url: 'https://thecanary.co/feed/',                           source: 'The Canary' },
-  { url: 'https://leftfootforward.org/feed/',                    source: 'Left Foot Forward' },
-  { url: 'https://www.huffingtonpost.co.uk/feeds/news.xml',      source: 'HuffPost UK' },
-
-  // ── Centrist / liberal ─────────────────────────────────────────
-  { url: 'https://www.politicshome.com/news/rss.xml',            source: 'Politics Home' },
-  { url: 'https://www.independent.co.uk/news/uk/politics/rss',   source: 'The Independent' },
-  { url: 'https://inews.co.uk/category/news/politics/feed',      source: 'iNews' },
-  { url: 'https://www.prospectmagazine.co.uk/feed',              source: 'Prospect Magazine' },
-
-  // ── Unbiased / analytical ──────────────────────────────────────
-  { url: 'https://feeds.bbci.co.uk/news/politics/rss.xml',       source: 'BBC News' },
-  { url: 'https://theconversation.com/uk/politics/articles.atom',source: 'The Conversation' },
-
-  // ── International (will filter to UK-political only) ──────────
-  { url: 'https://www.aljazeera.com/xml/rss/all.xml',            source: 'Al Jazeera' },
-  { url: 'https://www.fairobserver.com/feed/',                   source: 'Fair Observer' },
+  { url: 'https://www.theguardian.com/politics/rss',     source: 'The Guardian' },
+  { url: 'https://www.politicshome.com/news/rss.xml',    source: 'Politics Home' },
+  { url: 'https://novaramedia.com/feed/',                source: 'Novara Media' },
+  { url: 'https://bylinetimes.com/feed/',                source: 'Byline Times' },
+  { url: 'https://www.newstatesman.com/feeds/all',       source: 'New Statesman' },
+  { url: 'https://declassifieduk.org/feed/',             source: 'Declassified UK' },
+  { url: 'https://tribunemag.co.uk/feed',                source: 'Tribune' },
+  { url: 'https://thecanary.co/feed/',                   source: 'The Canary' },
+  { url: 'https://leftfootforward.org/feed/',            source: 'Left Foot Forward' },
 ];
 
 const PULSE_MUST_INCLUDE = [
@@ -1166,15 +1147,14 @@ Return ONLY valid JSON:
   if (pathname === '/api/pulse' && req.method === 'GET') {
     (async () => {
       try {
-        // Cache TTL: 5 minutes — RSS feeds are free and publishers don't care
-        // about polite polling at this frequency. Combined with a 10-min cron
-        // keeping the cache warm, users always see content under 5 min old.
+        // Cache TTL: 15 minutes — tight enough that top-of-feed is usually <15m
+        // old, loose enough that bursts of traffic don't re-hammer RSS sources.
         // `?fresh=1` bypasses the cache (triggered by the app's pull-to-refresh).
-        const FIVE_MIN = 5 * 60 * 1000;
+        const FIFTEEN_MIN = 15 * 60 * 1000;
         const forceFresh = parsed.query.fresh === '1' || parsed.query.fresh === 'true';
         let cached = null;
         try { cached = JSON.parse(fs.readFileSync(PULSE_FILE, 'utf8')); } catch {}
-        if (!forceFresh && cached && cached.cached_at && (Date.now() - new Date(cached.cached_at).getTime()) < FIVE_MIN) {
+        if (!forceFresh && cached && cached.cached_at && (Date.now() - new Date(cached.cached_at).getTime()) < FIFTEEN_MIN) {
           res.writeHead(200, { 'Content-Type': 'application/json' });
           return res.end(JSON.stringify({ ...cached, from_cache: true }));
         }
