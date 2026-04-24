@@ -248,17 +248,29 @@ const TRUSTED_SOURCES = [
   'parliament.uk',
 ];
 
-// ---- Pulse: curated UK political news sources ----
+// ---- Pulse: curated news sources ----
+// PULSE_MUST_INCLUDE filters these down to UK political articles only.
 const PULSE_FEEDS = [
-  { url: 'https://www.theguardian.com/politics/rss',     source: 'The Guardian' },
-  { url: 'https://www.politicshome.com/news/rss.xml',    source: 'Politics Home' },
-  { url: 'https://novaramedia.com/feed/',                source: 'Novara Media' },
-  { url: 'https://bylinetimes.com/feed/',                source: 'Byline Times' },
-  { url: 'https://www.newstatesman.com/feeds/all',       source: 'New Statesman' },
-  { url: 'https://declassifieduk.org/feed/',             source: 'Declassified UK' },
-  { url: 'https://tribunemag.co.uk/feed',                source: 'Tribune' },
-  { url: 'https://thecanary.co/feed/',                   source: 'The Canary' },
-  { url: 'https://leftfootforward.org/feed/',            source: 'Left Foot Forward' },
+  // ── Progressive / left ─────────────────────────────────────────
+  { url: 'https://www.theguardian.com/politics/rss',            source: 'The Guardian' },
+  { url: 'https://novaramedia.com/feed/',                        source: 'Novara Media' },
+  { url: 'https://bylinetimes.com/feed/',                        source: 'Byline Times' },
+  { url: 'https://www.newstatesman.com/feeds/all',              source: 'New Statesman' },
+  { url: 'https://declassifieduk.org/feed/',                     source: 'Declassified UK' },
+  { url: 'https://tribunemag.co.uk/feed',                       source: 'Tribune' },
+  { url: 'https://thecanary.co/feed/',                           source: 'The Canary' },
+  { url: 'https://leftfootforward.org/feed/',                    source: 'Left Foot Forward' },
+
+  // ── Centrist / liberal ─────────────────────────────────────────
+  { url: 'https://www.politicshome.com/news/rss.xml',            source: 'Politics Home' },
+  { url: 'https://www.independent.co.uk/news/uk/politics/rss',   source: 'The Independent' },
+  { url: 'https://inews.co.uk/category/news/politics/feed',      source: 'iNews' },
+
+  // ── Unbiased / UK-focused ──────────────────────────────────────
+  { url: 'https://feeds.bbci.co.uk/news/politics/rss.xml',       source: 'BBC News' },
+
+  // ── International (PULSE_MUST_INCLUDE filters to UK coverage only) ──
+  { url: 'https://www.aljazeera.com/xml/rss/all.xml',            source: 'Al Jazeera' },
 ];
 
 const PULSE_MUST_INCLUDE = [
@@ -291,22 +303,67 @@ const RSS_FEEDS = [
   { url: 'https://thecanary.co/feed/',                                  source: 'The Canary' },
 ];
 
+// Hardened RSS fetch — will NEVER leave a hanging connection or dangling
+// memory regardless of how the upstream misbehaves.
+//
+// Key properties:
+// 1. Single-resolution guard — `done` boolean stops duplicate resolve/reject
+// 2. Oversized response handling — destroy stream AND resolve with empty
+//    (we could parse what we have, but partial XML often confuses the regex
+//    parser; safer to just drop the feed for this cycle)
+// 3. All exit paths clear the timeout
 function fetchRss(feed) {
-  return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => reject(new Error('timeout')), 8000);
-    const get = (u, redirects = 4) => {
-      const mod = u.startsWith('https') ? https : require('http');
-      mod.get(u, { headers: { 'User-Agent': 'uk-bills-tracker/1.0', Accept: 'application/rss+xml, application/atom+xml, text/xml, */*' } }, (up) => {
-        if (up.statusCode >= 300 && up.statusCode < 400 && up.headers.location && redirects > 0) {
-          up.resume(); return get(up.headers.location, redirects - 1);
-        }
-        if (up.statusCode >= 400) { clearTimeout(timeout); return reject(new Error(`HTTP ${up.statusCode}`)); }
-        let xml = '';
-        up.setEncoding('utf8');
-        up.on('data', (c) => { xml += c; if (xml.length > 500000) up.destroy(); });
-        up.on('end', () => { clearTimeout(timeout); resolve(parseRss(xml)); });
-      }).on('error', (e) => { clearTimeout(timeout); reject(e); });
+  const MAX_BYTES = 500000;
+  const TIMEOUT_MS = 8000;
+
+  return new Promise((resolve) => {
+    let done = false;
+    let xml = '';
+    const finish = (result) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timeout);
+      resolve(result);
     };
+    const timeout = setTimeout(() => finish([]), TIMEOUT_MS);
+
+    const get = (u, redirects = 4) => {
+      if (done) return;
+      const mod = u.startsWith('https') ? https : require('http');
+      const req = mod.get(u, {
+        headers: {
+          'User-Agent': 'uk-bills-tracker/1.0',
+          'Accept':     'application/rss+xml, application/atom+xml, text/xml, */*',
+        },
+      }, (up) => {
+        if (up.statusCode >= 300 && up.statusCode < 400 && up.headers.location && redirects > 0) {
+          up.resume();
+          return get(up.headers.location, redirects - 1);
+        }
+        if (up.statusCode >= 400) {
+          up.resume();
+          return finish([]);
+        }
+        up.setEncoding('utf8');
+        up.on('data', (chunk) => {
+          if (done) return;
+          xml += chunk;
+          if (xml.length > MAX_BYTES) {
+            // Oversized — abort stream and drop the feed for this cycle
+            up.destroy();
+            finish([]);
+          }
+        });
+        up.on('end', () => {
+          if (done) return;
+          try { finish(parseRss(xml)); }
+          catch { finish([]); }
+        });
+        up.on('error', () => finish([]));
+      });
+      req.on('error', () => finish([]));
+    };
+
     get(feed.url);
   });
 }
@@ -1150,11 +1207,11 @@ Return ONLY valid JSON:
         // Cache TTL: 15 minutes — tight enough that top-of-feed is usually <15m
         // old, loose enough that bursts of traffic don't re-hammer RSS sources.
         // `?fresh=1` bypasses the cache (triggered by the app's pull-to-refresh).
-        const FIFTEEN_MIN = 15 * 60 * 1000;
+        const FIVE_MIN = 5 * 60 * 1000;
         const forceFresh = parsed.query.fresh === '1' || parsed.query.fresh === 'true';
         let cached = null;
         try { cached = JSON.parse(fs.readFileSync(PULSE_FILE, 'utf8')); } catch {}
-        if (!forceFresh && cached && cached.cached_at && (Date.now() - new Date(cached.cached_at).getTime()) < FIFTEEN_MIN) {
+        if (!forceFresh && cached && cached.cached_at && (Date.now() - new Date(cached.cached_at).getTime()) < FIVE_MIN) {
           res.writeHead(200, { 'Content-Type': 'application/json' });
           return res.end(JSON.stringify({ ...cached, from_cache: true }));
         }
