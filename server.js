@@ -248,17 +248,29 @@ const TRUSTED_SOURCES = [
   'parliament.uk',
 ];
 
-// ---- Pulse: curated UK political news sources ----
+// ---- Pulse: curated news sources ----
+// PULSE_MUST_INCLUDE filters these down to UK political articles only,
+// so broader sources only surface when they cover UK government/parties/bills.
 const PULSE_FEEDS = [
-  { url: 'https://www.theguardian.com/politics/rss',     source: 'The Guardian' },
-  { url: 'https://www.politicshome.com/news/rss.xml',    source: 'Politics Home' },
-  { url: 'https://novaramedia.com/feed/',                source: 'Novara Media' },
-  { url: 'https://bylinetimes.com/feed/',                source: 'Byline Times' },
-  { url: 'https://www.newstatesman.com/feeds/all',       source: 'New Statesman' },
-  { url: 'https://declassifieduk.org/feed/',             source: 'Declassified UK' },
-  { url: 'https://tribunemag.co.uk/feed',                source: 'Tribune' },
-  { url: 'https://thecanary.co/feed/',                   source: 'The Canary' },
-  { url: 'https://leftfootforward.org/feed/',            source: 'Left Foot Forward' },
+  // ── Progressive / left ─────────────────────────────────────────
+  { url: 'https://www.theguardian.com/politics/rss',            source: 'The Guardian' },
+  { url: 'https://novaramedia.com/feed/',                        source: 'Novara Media' },
+  { url: 'https://bylinetimes.com/feed/',                        source: 'Byline Times' },
+  { url: 'https://www.newstatesman.com/feeds/all',              source: 'New Statesman' },
+  { url: 'https://declassifieduk.org/feed/',                     source: 'Declassified UK' },
+  { url: 'https://tribunemag.co.uk/feed',                       source: 'Tribune' },
+  { url: 'https://thecanary.co/feed/',                           source: 'The Canary' },
+  { url: 'https://leftfootforward.org/feed/',                    source: 'Left Foot Forward' },
+  { url: 'https://www.huffingtonpost.co.uk/feeds/news.xml',      source: 'HuffPost UK' },
+
+  // ── Centrist / liberal ─────────────────────────────────────────
+  { url: 'https://www.politicshome.com/news/rss.xml',            source: 'Politics Home' },
+  { url: 'https://www.independent.co.uk/news/uk/politics/rss',   source: 'The Independent' },
+  { url: 'https://inews.co.uk/category/news/politics/feed',      source: 'iNews' },
+  { url: 'https://www.prospectmagazine.co.uk/feed',              source: 'Prospect Magazine' },
+
+  // ── Unbiased / analytical (UK-focused) ─────────────────────────
+  { url: 'https://feeds.bbci.co.uk/news/politics/rss.xml',       source: 'BBC News' },
 ];
 
 const PULSE_MUST_INCLUDE = [
@@ -1147,14 +1159,14 @@ Return ONLY valid JSON:
   if (pathname === '/api/pulse' && req.method === 'GET') {
     (async () => {
       try {
-        // Cache TTL: 15 minutes — tight enough that top-of-feed is usually <15m
-        // old, loose enough that bursts of traffic don't re-hammer RSS sources.
-        // `?fresh=1` bypasses the cache (triggered by the app's pull-to-refresh).
-        const FIFTEEN_MIN = 15 * 60 * 1000;
+        // Cache TTL: 5 minutes. RSS is free, publishers don't care about
+        // polite polling at this frequency, and worst-case freshness is now 5m.
+        // `?fresh=1` bypasses the cache (app pull-to-refresh uses this).
+        const FIVE_MIN = 5 * 60 * 1000;
         const forceFresh = parsed.query.fresh === '1' || parsed.query.fresh === 'true';
         let cached = null;
         try { cached = JSON.parse(fs.readFileSync(PULSE_FILE, 'utf8')); } catch {}
-        if (!forceFresh && cached && cached.cached_at && (Date.now() - new Date(cached.cached_at).getTime()) < FIFTEEN_MIN) {
+        if (!forceFresh && cached && cached.cached_at && (Date.now() - new Date(cached.cached_at).getTime()) < FIVE_MIN) {
           res.writeHead(200, { 'Content-Type': 'application/json' });
           return res.end(JSON.stringify({ ...cached, from_cache: true }));
         }
