@@ -777,12 +777,14 @@ Return ONLY valid JSON:
     }
     (async () => {
       try {
-        // Check cache
+        // Check cache. Only accept schema 2+ entries — older ones used the
+        // buggy "first match wins" logic that mis-labelled procedural votes
+        // as the MP's position on the bill.
         let cache = {};
         try { cache = JSON.parse(fs.readFileSync(MP_VOTES_FILE, 'utf8')); } catch {}
         const cacheKey = `${billId}:${mpId}`;
         const cached = cache[cacheKey];
-        if (cached && (Date.now() - cached.ts) < 86400000) {
+        if (cached && cached.schema === 2 && (Date.now() - cached.ts) < 86400000) {
           res.writeHead(200, { 'Content-Type': 'application/json' });
           return res.end(JSON.stringify(cached));
         }
@@ -794,9 +796,34 @@ Return ONLY valid JSON:
           .split(/\s+/)
           .filter(w => w.length >= 3 && !stopWords.has(w));
 
-        // Fetch up to 200 recent Commons votes for this MP (4 pages × 50)
-        let matched = null;
-        outer: for (let page = 1; page <= 4; page++) {
+        // Score a division by how well it represents "how the MP voted on the bill".
+        // - Third Reading is the final Commons vote on the whole bill (most meaningful).
+        // - Second Reading is the first principle-vote on the bill.
+        // - Lords amendment consideration is also meaningful.
+        // - Amendments, programme motions, money resolutions, instructions, committee
+        //   procedure etc. are NOT "voted on the bill" — they're about specific clauses
+        //   or process, and the lobby direction often doesn't map to supporting/opposing
+        //   the bill as a whole.
+        function scoreDivision(title) {
+          const t = (title || '').toLowerCase();
+          if (/third reading/.test(t))                           return { score: 100, stage: 'Third Reading' };
+          if (/consideration of.*lords/.test(t))                 return { score:  85, stage: 'Lords amendments' };
+          if (/lords.*consideration/.test(t))                    return { score:  85, stage: 'Lords amendments' };
+          if (/second reading/.test(t))                          return { score:  60, stage: 'Second Reading' };
+          if (/reasoned amendment/.test(t))                      return { score:  50, stage: 'Reasoned amendment' };
+          if (/first reading/.test(t))                           return { score:  20, stage: 'First Reading' };
+          // Procedural / amendment-level — these are NOT the MP's position on the bill
+          if (/programme motion|allocation of time|money resolution|ways and means|instruction|business of the house|carry-?over|committee|amendment|new clause|schedule/.test(t)) {
+            return { score: -50, stage: null };
+          }
+          // Plain bill title with no stage marker → mid-reading uncategorised
+          return { score: 10, stage: null };
+        }
+
+        // Collect ALL keyword-matching divisions across the MP's voting history,
+        // then pick the highest-scoring (i.e. most representative of their position).
+        const candidates = [];
+        for (let page = 1; page <= 4; page++) {
           const data = await getJson(
             `https://members-api.parliament.uk/api/Members/${mpId}/Voting?house=Commons&page=${page}&take=50`
           );
@@ -805,19 +832,40 @@ Return ONLY valid JSON:
             const divTitle = (v.title || '').toLowerCase();
             const hits = keywords.filter(kw => divTitle.includes(kw)).length;
             if (hits >= Math.min(2, keywords.length)) {
-              matched = {
-                vote: v.inAffirmativeLobby ? 'aye' : 'noe',
-                divisionTitle: v.title.trim(),
-                date: (v.date || '').slice(0, 10),
-                cached: false,
-              };
-              break outer;
+              const { score, stage } = scoreDivision(v.title);
+              candidates.push({
+                vote:           v.inAffirmativeLobby ? 'aye' : 'noe',
+                divisionTitle:  v.title.trim(),
+                stage,
+                date:           (v.date || '').slice(0, 10),
+                score,
+              });
             }
+          }
+          if (!data.items || data.items.length === 0) break;
+        }
+
+        let matched = null;
+        if (candidates.length > 0) {
+          candidates.sort((a, b) => b.score - a.score);
+          const best = candidates[0];
+          // If our best candidate is a procedural/amendment vote, that's not
+          // really an answer to "how did your MP vote on this bill". Return
+          // "no vote on record" rather than misleading the user.
+          if (best.score > 0) {
+            matched = {
+              vote:          best.vote,
+              divisionTitle: best.divisionTitle,
+              stage:         best.stage,
+              date:          best.date,
+              cached:        false,
+            };
           }
         }
 
-        const result = matched || { vote: null, divisionTitle: null, date: null, cached: false };
+        const result = matched || { vote: null, divisionTitle: null, stage: null, date: null, cached: false };
         result.ts = Date.now();
+        result.schema = 2; // bump so old-schema cached entries get re-fetched
         cache[cacheKey] = result;
         fs.writeFileSync(MP_VOTES_FILE, JSON.stringify(cache));
 
