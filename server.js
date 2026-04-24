@@ -550,14 +550,26 @@ const server = http.createServer((req, res) => {
     let body = '';
     req.on('data', (c) => { body += c; if (body.length > 60000) req.destroy(); });
     req.on('end', async () => {
+      let billId, summaries;
       try {
-        const { billId, bill, topics } = JSON.parse(body);
+        const parsed = JSON.parse(body);
+        billId = parsed.billId;
+        const bill = parsed.bill;
+        const topics = parsed.topics;
         if (!billId || !bill) throw new Error('billId and bill required');
         const requested = (topics || []).map((t) => t.id).sort();
-        const summaries = loadSummaries();
+        summaries = loadSummaries();
         const cached = summaries[billId];
-        // Schema v8: counter_summary field added.
-        if (cached && cached.schema === 8 && requested.every((id) => (cached.topics_covered || []).includes(id))) {
+
+        // Cache hit — accept schema 8 or 9 (both are still fine to surface).
+        // Manual summaries are always valid; Claude-generated ones are valid
+        // if they cover all the topics the client is asking about.
+        const cacheValid = cached &&
+          (cached.manual === true ||
+            ((cached.schema === 9 || cached.schema === 8) &&
+              requested.every((id) => (cached.topics_covered || []).includes(id))));
+
+        if (cacheValid) {
           res.writeHead(200, { 'Content-Type': 'application/json' });
           return res.end(JSON.stringify({ ...cached, cached: true }));
         }
@@ -669,6 +681,15 @@ STRICT RULES:
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(merged));
       } catch (err) {
+        // If Claude failed (credits out, rate limit, timeout, anything) but
+        // we DO have a cached summary — even one with partial topic coverage —
+        // surface it. Much better UX than "Couldn't generate analysis".
+        const stale = summaries && summaries[billId];
+        if (stale && (stale.summary || stale.tile_summary)) {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          return res.end(JSON.stringify({ ...stale, cached: true, stale: true }));
+        }
+        console.error('[summary] error:', err.message);
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: err.message }));
       }
