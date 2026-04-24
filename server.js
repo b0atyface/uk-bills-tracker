@@ -1235,6 +1235,23 @@ Return ONLY valid JSON:
   // cron job never overwrites it.
   {
     const adminSummaryMatch = pathname.match(/^\/api\/admin\/summary\/([^/]+)$/);
+
+    // GET — read the full cached summary for a bill (for patching etc.)
+    if (adminSummaryMatch && req.method === 'GET') {
+      if (!ADMIN_KEY || req.headers['x-admin-key'] !== ADMIN_KEY) {
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: 'Unauthorized' }));
+      }
+      const billId = adminSummaryMatch[1];
+      const s = loadSummaries()[String(billId)];
+      if (!s) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: 'Not found' }));
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ billId, summary: s }));
+    }
+
     if (adminSummaryMatch && (req.method === 'PUT' || req.method === 'POST' || req.method === 'PATCH')) {
       if (!ADMIN_KEY || req.headers['x-admin-key'] !== ADMIN_KEY) {
         res.writeHead(401, { 'Content-Type': 'application/json' });
