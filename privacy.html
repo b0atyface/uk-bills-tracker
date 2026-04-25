@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Privacy Policy — In The Loop</title>
+  <style>
+    body {
+      font-family: -apple-system, system-ui, Segoe UI, sans-serif;
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 40px 24px 80px;
+      line-height: 1.55;
+      color: #222;
+      background: #fafafa;
+    }
+    h1 { font-size: 1.8rem; margin-bottom: 4px; }
+    h2 { font-size: 1.15rem; margin-top: 2rem; margin-bottom: 0.5rem; }
+    .updated { color: #888; font-size: 0.85rem; margin-bottom: 2rem; }
+    p { margin: 0.7rem 0; }
+    ul { margin: 0.5rem 0; padding-left: 1.4rem; }
+    li { margin: 0.3rem 0; }
+    a { color: #0066cc; }
+    code {
+      background: #eee;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: ui-monospace, monospace;
+      font-size: 0.92em;
+    }
+    .lede {
+      font-size: 1.05rem;
+      color: #444;
+      border-left: 3px solid #FFD600;
+      padding-left: 14px;
+      margin: 1.5rem 0;
+    }
+  </style>
+</head>
+<body>
+
+<h1>Privacy Policy</h1>
+<div class="updated">Last updated: 25 April 2026</div>
+
+<p class="lede">
+  In The Loop is a UK Parliament tracker built by adaptable.agency. We are an
+  independent project — not affiliated with any political party, MP, think tank,
+  or government body. This page explains exactly what data the app collects,
+  what we do with it, and what we don't.
+</p>
+
+<h2>The short version</h2>
+
+<ul>
+  <li>We do not require an account or a login.</li>
+  <li>We do not collect, store, or share any personally identifying information about you.</li>
+  <li>The choices you make in the app — your topics of interest, your local MP, your saved bills — live only on your phone. They are not sent to our servers.</li>
+  <li>We do not use advertising trackers, analytics SDKs, or third-party identifiers.</li>
+</ul>
+
+<h2>What stays on your device</h2>
+
+<p>
+  When you use In The Loop, the following are stored locally on your phone in
+  Android's secure app storage (AsyncStorage). They are never uploaded to our
+  servers and we cannot read them:
+</p>
+
+<ul>
+  <li>The topics you choose during onboarding or in Settings</li>
+  <li>Your postcode and the MP it resolves to</li>
+  <li>The bills you mark as saved (the heart icon)</li>
+  <li>Your reading state on news articles (which you've already opened)</li>
+  <li>Whether you've completed the onboarding flow</li>
+</ul>
+
+<p>
+  Reset the app from Settings → "Reset app" to clear all of this in one step.
+  Uninstalling the app also clears all of it.
+</p>
+
+<h2>What hits our servers (and why)</h2>
+
+<p>
+  Our backend at <code>uk-bills-tracker-production.up.railway.app</code> is a
+  thin proxy and cache for public data. Each time the app loads bills, news,
+  polls, or an MP voting record, your phone makes an HTTPS request to our
+  server.
+</p>
+
+<p>These requests do not include any account, identifier, or personal data. They consist of:</p>
+
+<ul>
+  <li><b>The endpoint you're hitting</b> (e.g. <code>/api/bills</code>, <code>/api/pulse</code>)</li>
+  <li><b>Standard HTTP metadata</b> — your IP address, the user agent of the request, and the timestamp. This is the same metadata any website you visit receives. We do not log this beyond what Railway (our hosting provider) automatically retains for operational monitoring.</li>
+  <li><b>For MP voting lookups</b>: your MP's parliamentary ID and the bill ID. Your postcode is never sent to our servers — the postcode-to-MP lookup happens via Parliament's public API directly from your phone.</li>
+</ul>
+
+<p>
+  We do not use cookies, persistent tokens, account IDs, advertising IDs, or
+  any other identifier that could link requests to you across sessions.
+</p>
+
+<h2>Where the data we display comes from</h2>
+
+<p>In The Loop aggregates and reformats publicly available data from:</p>
+
+<ul>
+  <li>The UK Parliament Bills API (<a href="https://bills-api.parliament.uk">bills-api.parliament.uk</a>)</li>
+  <li>The UK Parliament Members API for MP voting records</li>
+  <li>RSS feeds from UK news outlets including BBC News, The Guardian, Politics Home, The Independent, iNews, New Statesman, Novara Media, Byline Times, Tribune, The Canary, Left Foot Forward, Declassified UK, and Al Jazeera, among others</li>
+  <li>UK polling data aggregated from public Wikipedia opinion polling tables</li>
+  <li>Editorial summaries written by adaptable.agency (the developers) and, where noted, generated with the help of Anthropic's Claude AI</li>
+</ul>
+
+<p>
+  All news article links open in your phone's default browser, where the
+  publisher's own privacy policies apply.
+</p>
+
+<h2>Donations and external links</h2>
+
+<p>
+  If you tap "Support us" and choose to donate, you'll be sent to
+  <b>Buy Me a Coffee</b> (buymeacoffee.com), which is a third party. Their
+  <a href="https://www.buymeacoffee.com/privacy-policy">privacy policy</a>
+  governs anything that happens there. We never see or store your payment
+  details.
+</p>
+
+<h2>App permissions</h2>
+
+<p>In The Loop requests no special device permissions. We do not access:</p>
+
+<ul>
+  <li>Your contacts</li>
+  <li>Your location (we use a postcode you type in, not GPS)</li>
+  <li>Your camera, microphone, photos, or storage</li>
+  <li>Your call logs, SMS, or device identifiers</li>
+</ul>
+
+<p>The app only uses the network connection — to talk to our backend, fetch RSS feeds, and look up your MP via Parliament's public API.</p>
+
+<h2>Children</h2>
+
+<p>
+  In The Loop is intended for ages 13 and up. We deliberately keep summaries
+  in plain English for younger readers learning about UK politics. We do not
+  knowingly collect any data from anyone of any age, including children.
+</p>
+
+<h2>Changes to this policy</h2>
+
+<p>
+  If we change this policy, we'll update the date at the top of this page.
+  Material changes will be flagged in the app's release notes when the next
+  version ships.
+</p>
+
+<h2>Contact</h2>
+
+<p>
+  Questions, corrections, or concerns? Reach us on X at
+  <a href="https://x.com/be_adaptable">@be_adaptable</a>. We read every message.
+</p>
+
+</body>
+</html>
