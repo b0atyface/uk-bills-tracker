@@ -1025,6 +1025,25 @@ Return ONLY valid JSON:
     return;
   }
 
+  // Public: per-bill trending data (news + civil-society mention counts).
+  // Computed by the enrichment cron and stored in kv_store. Cheap read.
+  if (pathname === '/api/trending' && req.method === 'GET') {
+    (async () => {
+      try {
+        const data = await db.getKV('trending', path.join(DATA_DIR, 'trending.json'));
+        res.writeHead(200, {
+          'Content-Type':  'application/json',
+          'Cache-Control': 'public, max-age=300',
+        });
+        res.end(JSON.stringify(data || { cached_at: null, bills: {} }));
+      } catch (e) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    })();
+    return;
+  }
+
   if (pathname === '/api/polls' && req.method === 'GET') {
     (async () => {
       try {
@@ -1793,8 +1812,80 @@ async function runCivilSocietyEnrichment() {
     }
   }
 
+  // ─── Trending compute ──────────────────────────────────────────
+  //
+  // Same article corpus, different question. For each bill, count the
+  // distinct source coverage in the last 7 days and 24h. Save to kv_store
+  // under 'trending' so /api/trending can serve it without recomputing.
+  // Civil-society sources count separately because they signal "this
+  // matters to a specific community" (higher quality signal than mainstream
+  // mentions which may just be passing references).
+  const SEVEN_D = 7 * 24 * 3600 * 1000;
+  const ONE_D   = 1 * 24 * 3600 * 1000;
+  const csSourceNames = new Set(CIVIL_SOCIETY_FEEDS.map((f) => f.source));
+
+  const trendingByBill = new Map(); // billId → { newsCount, newsCount24h, csCount, sources, sources24h, lastSeenAt }
+  for (const bill of bills) {
+    for (const article of allArticles) {
+      if (!articleMentionsBill(article, bill.norm)) continue;
+      if (!article.published) continue;
+      const ageMs = Date.now() - new Date(article.published).getTime();
+      if (ageMs > SEVEN_D) continue;
+
+      let entry = trendingByBill.get(bill.id);
+      if (!entry) {
+        entry = {
+          newsCount:    0,
+          newsCount24h: 0,
+          csCount:      0,
+          sources:      new Set(),
+          sources24h:   new Set(),
+          lastSeenAt:   null,
+        };
+        trendingByBill.set(bill.id, entry);
+      }
+
+      const isCs = csSourceNames.has(article.source);
+      if (!entry.sources.has(article.source)) {
+        entry.sources.add(article.source);
+        if (isCs) entry.csCount++;
+        else entry.newsCount++;
+      }
+      if (ageMs <= ONE_D && !entry.sources24h.has(article.source)) {
+        entry.sources24h.add(article.source);
+        entry.newsCount24h++;
+      }
+
+      if (!entry.lastSeenAt || article.published > entry.lastSeenAt) {
+        entry.lastSeenAt = article.published;
+      }
+    }
+  }
+
+  // Serialise (Sets → arrays) and persist to kv_store
+  const trendingPayload = {};
+  for (const [billId, entry] of trendingByBill.entries()) {
+    trendingPayload[billId] = {
+      newsCount:    entry.newsCount,
+      newsCount24h: entry.newsCount24h,
+      csCount:      entry.csCount,
+      total:        entry.newsCount + entry.csCount,
+      sources:      Array.from(entry.sources),
+      lastSeenAt:   entry.lastSeenAt,
+    };
+  }
+  await db.setKV('trending', {
+    cached_at: new Date().toISOString(),
+    window_d:  7,
+    bills:     trendingPayload,
+  }, path.join(DATA_DIR, 'trending.json'));
+
   const elapsed = ((Date.now() - start) / 1000).toFixed(1);
-  console.log(`[enrich] done in ${elapsed}s — ${updated} bills updated, ${added_topics} new topics, ${added_sources} new sources`);
+  console.log(
+    `[enrich] done in ${elapsed}s — ${updated} bills updated, ` +
+    `${added_topics} new topics, ${added_sources} new sources, ` +
+    `${trendingByBill.size} bills trending`
+  );
 
   // For visibility: which bills got matched + with which topics
   const matchedDetail = [];
@@ -1819,6 +1910,7 @@ async function runCivilSocietyEnrichment() {
     bills_updated:       updated,
     new_topics_added:    added_topics,
     new_sources_added:   added_sources,
+    bills_trending:      trendingByBill.size,
     elapsed_seconds:     elapsed,
     matched:             matchedDetail.slice(0, 30),
   };
