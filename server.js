@@ -1543,7 +1543,7 @@ const _job = {
 const CIVIL_SOCIETY_FEEDS = [
   { source: 'Liberty',           url: 'https://www.libertyhumanrights.org.uk/feed/',  topics: ['crime', 'current-affairs'] },
   { source: 'Big Brother Watch', url: 'https://bigbrotherwatch.org.uk/feed/',          topics: ['crime', 'technology', 'current-affairs'] },
-  { source: 'Open Rights Group', url: 'https://www.openrightsgroup.org/feed/',         topics: ['technology', 'crime'] },
+  { source: 'Open Rights Group', url: 'https://www.openrightsgroup.org/blog/feed/',    topics: ['technology', 'crime'] },
   { source: "Women's Aid",       url: 'https://www.womensaid.org.uk/feed/',            topics: ['women', 'crime'] },
   { source: 'Greenpeace UK',     url: 'https://www.greenpeace.org.uk/feed/',           topics: ['climate', 'environment'] },
   { source: 'TransActual',       url: 'https://transactual.org.uk/feed/',              topics: ['trans', 'lgbtq'] },
@@ -1551,20 +1551,35 @@ const CIVIL_SOCIETY_FEEDS = [
   { source: 'Good Law Project',  url: 'https://goodlawproject.org/feed/',              topics: ['current-affairs', 'lgbtq', 'trans'] },
 ];
 
-// Normalise a bill's shortTitle for matching: strip "Bill", "Act", years.
-// Bills with overly generic titles after stripping ("Finance", "Pension")
-// are excluded — too much false-positive risk.
+// Normalise text for matching: lowercase, & → and, collapse whitespace.
+function normaliseText(s) {
+  return (s || '')
+    .toLowerCase()
+    .replace(/&amp;/g, 'and')
+    .replace(/&/g, 'and')
+    .replace(/[—–]/g, '-')          // em/en dash
+    .replace(/[‘’]/g, "'")           // smart quotes
+    .replace(/[“”]/g, '"')
+    .replace(/[^\w\s'-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// Normalise a bill's shortTitle for matching: strip "Bill", "Act", years,
+// trailing parentheses, and the "the" article. Bills with overly generic
+// titles after stripping ("Finance", "Pension") are excluded — too much
+// false-positive risk.
 function normaliseBillTitle(title) {
   if (!title) return null;
-  const cleaned = title
-    .replace(/\b(Bill|Act|HL)\b/g, '')
+  let cleaned = normaliseText(title)
+    .replace(/\b(bill|act|hl)\b/g, '')
     .replace(/\b\d{4}\b/g, '')
-    .replace(/\([^)]*\)/g, '')
+    .replace(/\b(the|a)\b/g, '')
     .replace(/\s+/g, ' ')
-    .trim()
-    .toLowerCase();
-  // Require at least 2 substantive words (>2 chars each)
-  const significant = cleaned.split(/\s+/).filter((w) => w.length > 2);
+    .trim();
+  // Require at least 2 substantive words (>3 chars each) so we don't
+  // match "finance act" → "finance" against any article saying "finance".
+  const significant = cleaned.split(/\s+/).filter((w) => w.length > 3);
   if (significant.length < 2) return null;
   return cleaned;
 }
@@ -1572,8 +1587,16 @@ function normaliseBillTitle(title) {
 // Returns true if `article` mentions `bill` by name in headline or body.
 function articleMentionsBill(article, normalisedTitle) {
   if (!normalisedTitle) return false;
-  const haystack = `${article.headline || ''} ${(article.body || '').slice(0, 2000)}`.toLowerCase();
-  return haystack.includes(normalisedTitle);
+  const haystack = normaliseText(
+    `${article.headline || ''} ${(article.body || '').slice(0, 3000)}`,
+  );
+  // Direct substring match (works for "crime and policing")
+  if (haystack.includes(normalisedTitle)) return true;
+  // Also try the title with "Bill"/"Act" added back, in case the article
+  // refers to it formally e.g. "the Crime and Policing Bill"
+  const billish = `${normalisedTitle} bill`;
+  const actish  = `${normalisedTitle} act`;
+  return haystack.includes(billish) || haystack.includes(actish);
 }
 
 async function runCivilSocietyEnrichment() {
@@ -1603,7 +1626,26 @@ async function runCivilSocietyEnrichment() {
     });
   });
 
-  console.log(`[enrich] fetched ${allArticles.length} recent civil-society articles`);
+  // ALSO scan the cached Pulse articles. They cover mainstream UK
+  // political news and DO use formal bill names — they often catch
+  // bills the civil-society RSS feeds miss. Map the article's source
+  // (Guardian, BBC etc.) to general topics — we can't infer specific
+  // community impact from generalist coverage, so we tag conservatively.
+  try {
+    const pulse = JSON.parse(fs.readFileSync(PULSE_FILE, 'utf8'));
+    (pulse.articles || []).forEach((a) => {
+      if (!a.headline || !a.url) return;
+      // Only consider mainstream political coverage as a "current-affairs"
+      // signal for now — refining per-publication mapping later.
+      allArticles.push({
+        ...a,
+        sourceTopics: ['current-affairs'],
+        // Keep the article's own source field intact ('The Guardian' etc.)
+      });
+    });
+  } catch {}
+
+  console.log(`[enrich] fetched ${allArticles.length} articles total (civil-society + pulse)`);
 
   // Pre-compute a normalised title for every active bill we know about.
   const upstream = await getJson(
@@ -1712,6 +1754,19 @@ async function runCivilSocietyEnrichment() {
   const elapsed = ((Date.now() - start) / 1000).toFixed(1);
   console.log(`[enrich] done in ${elapsed}s — ${updated} bills updated, ${added_topics} new topics, ${added_sources} new sources`);
 
+  // For visibility: which bills got matched + with which topics
+  const matchedDetail = [];
+  for (const [billId, entry] of enrichments.entries()) {
+    const bill = bills.find((b) => b.id === Number(billId) || b.id === billId);
+    matchedDetail.push({
+      billId,
+      title:  bill?.short || '?',
+      topics: Array.from(entry.topicsToAdd),
+      sourceCount: Array.from(entry.sourcesByTopic.values())
+        .reduce((sum, list) => sum + list.length, 0),
+    });
+  }
+
   return {
     ok:                  true,
     feeds_fetched:       feedResults.filter((r) => r.status === 'fulfilled').length,
@@ -1723,6 +1778,7 @@ async function runCivilSocietyEnrichment() {
     new_topics_added:    added_topics,
     new_sources_added:   added_sources,
     elapsed_seconds:     elapsed,
+    matched:             matchedDetail.slice(0, 30),
   };
 }
 
