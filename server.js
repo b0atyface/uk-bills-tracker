@@ -1834,18 +1834,34 @@ async function runGeneratePending() {
     const bills = data.items || [];
     const summaries = db.getSummaries();
 
+    // ─── Decide which bills genuinely need regeneration ───────
+    //
+    // The expensive step is the Claude call. Skip aggressively when the
+    // bill hasn't *substantively* changed:
+    //  - Skip bills with no topic match (private local, niche tax tweaks, etc)
+    //  - Skip bills with manual: true (we wrote them by hand)
+    //  - Skip if topics are already covered AND the stage hasn't moved AND
+    //    the cache is less than 14 days old
+    // Only call Claude for genuinely new content.
+    const STALE_AFTER_DAYS = 14;
+    const STALE_MS = STALE_AFTER_DAYS * 24 * 3600 * 1000;
     const todo = bills.filter((b) => {
       const topics = topicsForBill(b);
-      if (topics.length === 0) return false;
+      if (topics.length === 0) return false;        // junk PMBs, no topic match
       const cached = summaries[String(b.billId)];
-      // Never overwrite manually-written summaries
-      if (cached?.manual) return false;
-      // No cache or schema drift → must generate
-      if (!cached || cached.schema !== 9) return true;
-      // Missing topic coverage → must regenerate
+      if (cached?.manual) return false;             // hand-written, don't touch
+      if (!cached || cached.schema !== 9) return true; // never seen → generate
+      // Missing topic coverage → regenerate
       if (!topics.every((t) => (cached.topics_covered || []).includes(t.id))) return true;
-      // Bill has moved since we last generated → regenerate
-      if (b.lastUpdate && cached.bill_last_update && b.lastUpdate > cached.bill_last_update) return true;
+      // Stage actually moved → regenerate (substantive change)
+      const currentStage = b.currentStage?.description || '';
+      if (cached.bill_stage && cached.bill_stage !== currentStage) return true;
+      // Cache is old enough that it's worth a refresh anyway
+      if (cached.generated_at && (Date.now() - new Date(cached.generated_at).getTime()) > STALE_MS) {
+        return true;
+      }
+      // Otherwise: bill might have had minor metadata churn (committee
+      // membership, sitting added etc) — not worth a Claude call.
       return false;
     });
 
@@ -1859,15 +1875,17 @@ async function runGeneratePending() {
       _job.current = bill.shortTitle || String(bill.billId);
 
       try {
-        // Re-use the same prompt + Claude call already in the server
-        // by calling our own /api/summary endpoint internally
+        // Idempotency double-check (in case generation took long enough
+        // that another run already covered this bill)
         const existing = db.getSummaries()[String(bill.billId)];
         const requested = topics.map((t) => t.id).sort();
+        const currentStage = bill.currentStage?.description || '';
         const alreadyCovered = existing && existing.schema === 9 &&
           requested.every((id) => (existing.topics_covered || []).includes(id));
-        const billMoved = bill.lastUpdate && existing?.bill_last_update &&
-          bill.lastUpdate > existing.bill_last_update;
-        if (alreadyCovered && !billMoved) {
+        const stageUnchanged = existing?.bill_stage === currentStage;
+        const fresh = existing?.generated_at &&
+          (Date.now() - new Date(existing.generated_at).getTime()) < STALE_MS;
+        if (alreadyCovered && stageUnchanged && fresh) {
           _job.skipped++;
           _job.total--;
           continue;
@@ -1876,12 +1894,17 @@ async function runGeneratePending() {
         const billText = await getBillText(bill.billId);
         const topicsList = topics.map((t) => `- ${t.id}: ${t.label}`).join('\n');
 
+        // Use Haiku for routine cron-driven regeneration. ~12× cheaper
+        // output than Sonnet, and good enough for plain-English summaries.
+        // We also drop web_search — civil-society sources now come from
+        // the enrichment pass, not from per-generation Claude searches.
+        // Manual /api/summary calls still use Sonnet for first-time
+        // generation of important new bills.
         const prompt = buildSummaryPrompt(bill, topics, topicsList, billText);
         const aiData = await claudeCall({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 3000,
-          tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 2, allowed_domains: TRUSTED_SOURCES }],
-          messages: [{ role: 'user', content: prompt }],
+          model:      'claude-haiku-4-5-20251001',
+          max_tokens: 2500,
+          messages:   [{ role: 'user', content: prompt }],
         });
 
         const text = extractFinalText(aiData);
@@ -1890,17 +1913,21 @@ async function runGeneratePending() {
         const json = JSON.parse(j);
 
         const merged = {
-          schema: 9,
+          // Preserve any existing civil-society enrichment metadata
+          ...(existing || {}),
+          schema:          9,
           tile_summary:    json.tile_summary    || '',
           their_framing:   json.their_framing   || '',
           summary:         json.summary         || '',
           counter_summary: json.counter_summary || '',
-          affected_groups: json.affected_groups || [],
+          affected_groups: json.affected_groups || existing?.affected_groups || [],
           watch_for:       json.watch_for       || '',
           topics_covered:  requested,
           has_bill_text:   billText.length > 500,
           bill_last_update: bill.lastUpdate || null,
+          bill_stage:      currentStage,
           generated_at:    new Date().toISOString(),
+          generated_with:  'haiku',
         };
 
         await db.upsertSummary(bill.billId, merged, SUMMARIES_FILE);
@@ -1912,8 +1939,10 @@ async function runGeneratePending() {
         console.error(`[generate] ✗ ${_job.current}: ${e.message}`);
       }
 
-      // Rate limit — 95s between Claude calls (30k TPM cap)
-      if (i < todo.length - 1) await sleep(95000);
+      // Haiku rate limits are far higher than Sonnet's. 8s between calls
+      // is plenty of headroom and means a 50-bill regeneration takes
+      // ~7 minutes instead of ~80 with the old Sonnet 95s cadence.
+      if (i < todo.length - 1) await sleep(8000);
     }
   } catch (e) {
     _job.lastError = e.message;
