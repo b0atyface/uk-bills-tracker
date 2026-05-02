@@ -1250,6 +1250,35 @@ Return ONLY valid JSON:
     return;
   }
 
+  // ── Admin: news-driven enrichment ──────────────────────────────
+  //
+  // Walks the latest articles from a curated list of UK civil-society RSS
+  // feeds. For each article, fuzzy-matches the headline + body against
+  // bill titles. When a match is found, adds the source's topics to the
+  // bill's `topics_covered` and the article URL to its
+  // `affected_groups[topic].sources` — automatically.
+  //
+  // The point: civil society groups already do the work of figuring out
+  // which bills affect their community. We just inherit their judgement.
+  if (pathname === '/api/admin/enrich-from-civil-society' &&
+      (req.method === 'POST' || req.method === 'GET')) {
+    if (!ADMIN_KEY || req.headers['x-admin-key'] !== ADMIN_KEY) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'Unauthorized' }));
+    }
+    (async () => {
+      try {
+        const result = await runCivilSocietyEnrichment();
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(result));
+      } catch (e) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    })();
+    return;
+  }
+
   // ── Admin: trigger background generation ──────────────────────
   if (pathname === '/api/admin/generate' && (req.method === 'POST' || req.method === 'GET')) {
     if (!ADMIN_KEY || req.headers['x-admin-key'] !== ADMIN_KEY) {
@@ -1499,6 +1528,203 @@ const _job = {
   lastError: '',
   finishedAt: null,
 };
+
+// ─── Civil-society enrichment ───────────────────────────────────
+//
+// Curated RSS feeds from UK advocacy groups. Each entry maps a feed to
+// the topics that group covers — when an article from that source
+// mentions a bill, we auto-add those topics to the bill's classification
+// and cite the article as a source.
+//
+// Only feeds that returned 200 + valid RSS during probing are listed.
+// Stonewall and a few others don't expose RSS publicly; we'll cover them
+// later either through Pulse mainstream-coverage scraping or manual
+// admin patches.
+const CIVIL_SOCIETY_FEEDS = [
+  { source: 'Liberty',           url: 'https://www.libertyhumanrights.org.uk/feed/',  topics: ['crime', 'current-affairs'] },
+  { source: 'Big Brother Watch', url: 'https://bigbrotherwatch.org.uk/feed/',          topics: ['crime', 'technology', 'current-affairs'] },
+  { source: 'Open Rights Group', url: 'https://www.openrightsgroup.org/feed/',         topics: ['technology', 'crime'] },
+  { source: "Women's Aid",       url: 'https://www.womensaid.org.uk/feed/',            topics: ['women', 'crime'] },
+  { source: 'Greenpeace UK',     url: 'https://www.greenpeace.org.uk/feed/',           topics: ['climate', 'environment'] },
+  { source: 'TransActual',       url: 'https://transactual.org.uk/feed/',              topics: ['trans', 'lgbtq'] },
+  { source: 'JCWI',              url: 'https://www.jcwi.org.uk/feed',                  topics: ['immigration'] },
+  { source: 'Good Law Project',  url: 'https://goodlawproject.org/feed/',              topics: ['current-affairs', 'lgbtq', 'trans'] },
+];
+
+// Normalise a bill's shortTitle for matching: strip "Bill", "Act", years.
+// Bills with overly generic titles after stripping ("Finance", "Pension")
+// are excluded — too much false-positive risk.
+function normaliseBillTitle(title) {
+  if (!title) return null;
+  const cleaned = title
+    .replace(/\b(Bill|Act|HL)\b/g, '')
+    .replace(/\b\d{4}\b/g, '')
+    .replace(/\([^)]*\)/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+  // Require at least 2 substantive words (>2 chars each)
+  const significant = cleaned.split(/\s+/).filter((w) => w.length > 2);
+  if (significant.length < 2) return null;
+  return cleaned;
+}
+
+// Returns true if `article` mentions `bill` by name in headline or body.
+function articleMentionsBill(article, normalisedTitle) {
+  if (!normalisedTitle) return false;
+  const haystack = `${article.headline || ''} ${(article.body || '').slice(0, 2000)}`.toLowerCase();
+  return haystack.includes(normalisedTitle);
+}
+
+async function runCivilSocietyEnrichment() {
+  const start = Date.now();
+  console.log('[enrich] starting civil-society enrichment pass');
+
+  // Fetch all civil society feeds in parallel; skip ones that fail.
+  const feedResults = await Promise.allSettled(
+    CIVIL_SOCIETY_FEEDS.map(async (cfg) => {
+      const articles = await fetchRss(cfg);
+      return { cfg, articles };
+    }),
+  );
+
+  const allArticles = [];
+  feedResults.forEach((r) => {
+    if (r.status !== 'fulfilled') return;
+    const { cfg, articles } = r.value;
+    articles.forEach((a) => {
+      if (!a.headline || !a.url) return;
+      // Cap to recent articles only — last 60 days, no need to re-tag
+      // bills based on ancient coverage.
+      if (a.published && (Date.now() - new Date(a.published).getTime()) > 60 * 24 * 3600 * 1000) {
+        return;
+      }
+      allArticles.push({ ...a, source: cfg.source, sourceTopics: cfg.topics });
+    });
+  });
+
+  console.log(`[enrich] fetched ${allArticles.length} recent civil-society articles`);
+
+  // Pre-compute a normalised title for every active bill we know about.
+  const upstream = await getJson(
+    'https://bills-api.parliament.uk/api/v1/Bills?SortOrder=DateUpdatedDescending&take=200'
+  );
+  const bills = (upstream.items || []).map((b) => ({
+    id:    b.billId,
+    short: b.shortTitle,
+    norm:  normaliseBillTitle(b.shortTitle),
+  })).filter((b) => b.norm);
+
+  console.log(`[enrich] checking ${bills.length} active bills against ${allArticles.length} articles`);
+
+  // For each (bill, article) pair, check for a name match.
+  // Group matches by billId so we can apply them in one upsert.
+  const enrichments = new Map(); // billId → { topicsToAdd: Set, sourcesByTopic: Map }
+  for (const bill of bills) {
+    for (const article of allArticles) {
+      if (!articleMentionsBill(article, bill.norm)) continue;
+
+      let entry = enrichments.get(bill.id);
+      if (!entry) {
+        entry = { topicsToAdd: new Set(), sourcesByTopic: new Map() };
+        enrichments.set(bill.id, entry);
+      }
+      // Each match contributes the article's source-topics to this bill.
+      article.sourceTopics.forEach((t) => {
+        entry.topicsToAdd.add(t);
+        if (!entry.sourcesByTopic.has(t)) entry.sourcesByTopic.set(t, []);
+        const list = entry.sourcesByTopic.get(t);
+        // Dedupe by URL
+        if (!list.some((s) => s.url === article.url)) {
+          list.push({
+            organisation: article.source,
+            url:          article.url,
+            // headline kept for debugging/admin only — not surfaced to users
+            headline:     article.headline,
+          });
+        }
+      });
+    }
+  }
+
+  console.log(`[enrich] ${enrichments.size} bills matched at least one article`);
+
+  // Apply enrichments to each matched bill's cached summary.
+  let updated = 0;
+  let added_topics = 0;
+  let added_sources = 0;
+  for (const [billId, entry] of enrichments.entries()) {
+    const summaries = db.getSummaries();
+    const existing = summaries[String(billId)];
+    if (!existing) continue; // skip bills with no base summary yet
+
+    const currentTopics = new Set(existing.topics_covered || []);
+    const groups = (existing.affected_groups || []).slice();
+    let changed = false;
+
+    for (const topic of entry.topicsToAdd) {
+      // 1. Add to topics_covered if missing
+      if (!currentTopics.has(topic)) {
+        currentTopics.add(topic);
+        added_topics++;
+        changed = true;
+      }
+      // 2. Find or create the affected_groups entry for this topic
+      let group = groups.find((g) => g.topic_id === topic);
+      if (!group) {
+        // Create a stub — copy from BILL_TOPICS for the label
+        const t = BILL_TOPICS.find((bt) => bt.id === topic);
+        if (!t) continue;
+        group = {
+          topic_id: topic,
+          label:    t.label,
+          stance:   'mixed',
+          impact:   `Civil society groups have flagged this bill as relevant to this community. See sources below for the specific concerns and analyses.`,
+          sources:  [],
+        };
+        groups.push(group);
+        changed = true;
+      }
+      // 3. Add new sources (deduped by URL)
+      const newSources = entry.sourcesByTopic.get(topic) || [];
+      for (const newSrc of newSources) {
+        if (!group.sources.some((s) => s.url === newSrc.url)) {
+          group.sources.push({ organisation: newSrc.organisation, url: newSrc.url });
+          added_sources++;
+          changed = true;
+        }
+      }
+    }
+
+    if (changed) {
+      const merged = {
+        ...existing,
+        topics_covered:  Array.from(currentTopics).sort(),
+        affected_groups: groups,
+        // Track that this enrichment happened for transparency / UI badging
+        civil_society_enriched_at: new Date().toISOString(),
+      };
+      await db.upsertSummary(billId, merged, SUMMARIES_FILE);
+      updated++;
+    }
+  }
+
+  const elapsed = ((Date.now() - start) / 1000).toFixed(1);
+  console.log(`[enrich] done in ${elapsed}s — ${updated} bills updated, ${added_topics} new topics, ${added_sources} new sources`);
+
+  return {
+    ok:                  true,
+    feeds_fetched:       feedResults.filter((r) => r.status === 'fulfilled').length,
+    feeds_failed:        feedResults.filter((r) => r.status !== 'fulfilled').length,
+    articles_scanned:    allArticles.length,
+    bills_active:        bills.length,
+    bills_matched:       enrichments.size,
+    bills_updated:       updated,
+    new_topics_added:    added_topics,
+    new_sources_added:   added_sources,
+    elapsed_seconds:     elapsed,
+  };
+}
 
 async function runGeneratePending() {
   if (_job.running) return; // already running — idempotent
