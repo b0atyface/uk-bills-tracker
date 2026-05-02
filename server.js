@@ -746,6 +746,48 @@ STRICT RULES:
           res.writeHead(200, { 'Content-Type': 'application/json' });
           return res.end(JSON.stringify({ ...stale, cached: true, stale: true }));
         }
+
+        // No cache + no Claude → build a fallback summary from the bill
+        // data the client already passed us. Better than a 500: users still
+        // see the long title, sponsor, stage, and a "no analysis yet"
+        // signal. Tagged as is_fallback so the UI can soften the framing.
+        try {
+          const parsed2 = JSON.parse(body);
+          const billData = parsed2.bill || {};
+          const longTitle = (billData.longTitle || '').trim();
+          const reqTopics = parsed2.topics || [];
+          const fallbackGroups = reqTopics.length
+            ? reqTopics.map((t) => ({
+                topic_id: t.id,
+                label:    t.label,
+                stance:   'neutral',
+                impact:   "We haven't written a community-impact analysis for this bill yet. Tap the source links below to read what civil society groups are saying about it directly.",
+                sources:  [],
+              }))
+            : [];
+
+          const fallback = {
+            schema:        9,
+            tile_summary:  billData.shortTitle || 'Bill awaiting analysis',
+            their_framing: '',
+            summary:       longTitle ||
+                           "Parliament hasn't published a public summary for this bill yet. The bill is being tracked but a written analysis isn't available — you can still read the full text on parliament.uk.",
+            counter_summary: '',
+            affected_groups: fallbackGroups,
+            watch_for:       billData.currentStage
+                             ? `Currently at ${billData.currentStage}.`
+                             : '',
+            topics_covered:  reqTopics.map((t) => t.id).sort(),
+            has_bill_text:   false,
+            is_fallback:     true,
+            fallback_reason: /credit/i.test(err.message) ? 'no_ai_credits' : 'no_data',
+            generated_at:    new Date().toISOString(),
+          };
+
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          return res.end(JSON.stringify(fallback));
+        } catch {}
+
         console.error('[summary] error:', err.message);
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: err.message }));
